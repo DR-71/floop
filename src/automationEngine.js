@@ -502,7 +502,7 @@ async function createSubscription(payload) {
     category: payload.category || 'All',
     minSubscribers: Number(payload.minSubscribers) || 10,
     sfwOnly: isAdultCat ? false : (payload.sfwOnly !== false),
-    newTimeframe: payload.newTimeframe || '30d',
+    newTimeframe: payload.newTimeframe || '90d',
     newLimit: Number(payload.newLimit) || 5,
     hot90dLimit: Number(payload.hot90dLimit) || 5,
     deliveryTime,

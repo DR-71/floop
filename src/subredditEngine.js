@@ -29,18 +29,18 @@ const NSFW_REGEX = /\b(nsfw|porn|pornstar|pornstars|sex|nude|nudes|nudism|tits|b
 
 const BLOCKLIST_REGEX = /coprophil|scat|incest|ensest|behen|teen|minor|underage|escort|rape|gore|gangbang|cunny/i;
 
-// Weighted domain keyword rules for accurate multi-signal classification
+// Weighted domain keyword rules for accurate multi-signal classification of real Reddit communities
 const CATEGORY_MATCHERS = [
   {
     category: 'Technology & AI',
     tokens: [
       'ai', 'ml', 'llm', 'llms', 'gpt', 'claude', 'openai', 'anthropic', 'github', 'repo', 'repos',
-      'code', 'coding', 'programmer', 'programming', 'developer', 'software', 'hardware', 'iphone',
-      'apple', 'android', 'linux', 'tech', 'technology', 'cyber', 'cybersecurity', 'cloud', 'saas',
-      'robotics', 'electronic', 'electronics', 'foldable', 'computing', 'automation', 'agent',
+      'code', 'coding', 'programmer', 'programming', 'developer', 'developers', 'software', 'hardware',
+      'iphone', 'apple', 'android', 'linux', 'tech', 'technology', 'cyber', 'cybersecurity', 'cloud',
+      'saas', 'robotics', 'electronic', 'electronics', 'foldable', 'computing', 'automation', 'agent',
       'agents', 'agentic', 'mcp', 'rust', 'python', 'javascript', 'typescript', 'homelab',
-      'selfhosted', 'opensource', 'server', 'servers', 'gpu', 'nixos', 'sistemi', 'operativi',
-      'compiler', 'firmware', 'embedded', 'microcontroller'
+      'selfhosted', 'opensource', 'server', 'servers', 'gpu', 'vram', 'nixos', 'sistemi', 'operativi',
+      'compiler', 'firmware', 'embedded', 'microcontroller', 'webdev', 'app', 'apps', 'api', 'mac'
     ]
   },
   {
@@ -51,7 +51,7 @@ const CATEGORY_MATCHERS = [
       'minecraft', 'roblox', 'valorant', 'fortnite', 'indiegame', 'modding', 'warhammer',
       'khazalite', 'mushoku', 'valko', 'deepspace', 'sims', 'gta', 'zelda', 'elden', 'handheld',
       'retrogaming', 'speedrun', 'tabletop', 'roguelike', 'deckbuilder', 'simracing', 'arknights',
-      'wardogs', 'marvelsuperwar', 'playout', 'runescape'
+      'wardogs', 'marvelsuperwar', 'playout', 'runescape', 'mod', 'mods', 'console', 'multiplayer'
     ]
   },
   {
@@ -61,7 +61,7 @@ const CATEGORY_MATCHERS = [
       'biology', 'orbit', 'orbinauts', 'satellite', 'astronomy', 'telescope', 'nasa', 'orbital', 'rocket', 'math',
       'mathematics', 'medical', 'plague', 'outbreak', 'medicine', 'neuro', 'neuroscience',
       'climate', 'energy', 'fusion', 'battery', 'quantum', 'mechanics', 'aerospace', 'geology',
-      'materials', 'biotech', 'microscopy', 'tokamak', 'telemetry'
+      'materials', 'biotech', 'microscopy', 'tokamak', 'telemetry', 'cad', 'parametric', 'research'
     ]
   },
   {
@@ -72,7 +72,7 @@ const CATEGORY_MATCHERS = [
       'startup', 'startups', 'founder', 'founders', 'business', 'economy', 'economics', 'macro',
       'trading', 'trader', 'traders', 'daytrading', 'market', 'markets', 'wealth', 'money', 'b2b',
       'ecommerce', 'realestate', 'deals', 'restock', 'luxury', 'ridiculux', 'venture', 'tax',
-      'dividend', 'bonds', 'treasury', 'mrr', 'pricing', 'freight', 'supplychain'
+      'dividend', 'bonds', 'treasury', 'mrr', 'pricing', 'freight', 'supplychain', 'nasdaq', 'etf'
     ]
   },
   {
@@ -83,7 +83,7 @@ const CATEGORY_MATCHERS = [
       'photography', 'photographer', 'camera', 'architecture', 'craft', 'satisfyingart', 'ui',
       'ux', 'graphic', 'sculpture', 'typography', 'font', 'fonts', 'sketch', 'sketchbook',
       'isometric', 'voxel', 'ceramic', 'printmaking', 'frontierart', 'vector', 'vectorcraft',
-      'blender', 'cad'
+      'blender', 'motion', 'creative'
     ]
   },
   {
@@ -93,7 +93,7 @@ const CATEGORY_MATCHERS = [
       'motorsport', 'racing', 'gym', 'fitness', 'fit', 'running', 'marathon', 'trail', 'lifting',
       'powerlifting', 'bodybuilding', 'workout', 'workouts', 'martial', 'mma', 'ufc', 'bjj',
       'tennis', 'golf', 'cricket', 'athletic', 'cycling', 'triathlon', 'climbing', 'endurance',
-      'physique', 'aerobic', 'lactate'
+      'physique', 'aerobic', 'lactate', 'pickup', 'league', 'athlete'
     ]
   },
   {
@@ -103,7 +103,7 @@ const CATEGORY_MATCHERS = [
       'chef', 'coffee', 'espresso', 'tea', 'wok', 'grill', 'travel', 'travelers', 'backpacking',
       'fashion', 'streetwear', 'outfits', 'makeup', 'interior', 'garden', 'gardening', 'plants',
       'pet', 'pets', 'cat', 'cats', 'dog', 'dogs', 'dating', 'parenting', 'minimalism', 'beauty',
-      'skincare', 'vegan', 'culinary', 'pantry', 'grocery', 'cars', 'automotive'
+      'skincare', 'vegan', 'culinary', 'pantry', 'grocery', 'cars', 'automotive', 'lifestyle', 'home'
     ]
   },
   {
@@ -113,7 +113,7 @@ const CATEGORY_MATCHERS = [
       'rap', 'hiphop', 'rock', 'metal', 'indiepop', 'jazz', 'synth', 'synthesizer', 'eurorack',
       'modular', 'guitar', 'guitarists', 'bassists', 'piano', 'drums', 'recordists', 'daw',
       'soundtrack', 'soundtracks', 'audio', 'audiophile', 'headphones', 'iem', 'vinyl', 'concert',
-      'spotify', 'singer', 'vocal', 'cassette', 'soundstage'
+      'spotify', 'singer', 'vocal', 'cassette', 'soundstage', 'beat', 'beats', 'mix'
     ]
   },
   {
@@ -123,7 +123,7 @@ const CATEGORY_MATCHERS = [
       'interview', 'interviews', 'resume', 'remotework', 'workplace', 'study', 'studying',
       'university', 'college', 'student', 'students', 'abroad', 'studyabroad', 'academy',
       'education', 'teaching', 'teacher', 'tutors', 'tutored', 'linguistics', 'exam', 'gmat',
-      'phd', 'doctoral', 'academia', 'internship', 'mentorship', 'residency', 'scholars'
+      'phd', 'doctoral', 'academia', 'internship', 'mentorship', 'residency', 'scholars', 'campus'
     ]
   },
   {
@@ -131,7 +131,7 @@ const CATEGORY_MATCHERS = [
     tokens: [
       'meme', 'memes', 'memez', 'humor', 'funny', 'circlejerk', 'okbuddy', 'okaybuddy',
       'shitpost', 'shitposting', 'satire', 'joke', 'jokes', 'comedy', 'comedian', 'snark',
-      'gossip', 'roast', 'parody', 'dank', 'wholesome', 'plagiarism', 'copypaste', 'cringe'
+      'gossip', 'roast', 'parody', 'dank', 'wholesome', 'plagiarism', 'copypaste', 'cringe', 'memes'
     ]
   },
   {
@@ -140,7 +140,7 @@ const CATEGORY_MATCHERS = [
       'movie', 'movies', 'film', 'films', 'cinema', 'cinetopia', 'tv', 'television', 'series',
       'fx', 'netflix', 'hbo', 'streaming', 'anime', 'manga', 'manhwa', 'comic', 'comics', 'book',
       'books', 'novel', 'novels', 'scifi', 'fantasy', 'podcast', 'celebrity', 'actor', 'actress',
-      'streamer', 'youtube', 'director', 'screenwriting', 'fandom', 'drama', 'theater', 'imax'
+      'streamer', 'youtube', 'director', 'screenwriting', 'fandom', 'drama', 'theater', 'imax', 'fans'
     ]
   }
 ];
@@ -178,11 +178,9 @@ function classifyCategory(item) {
     let score = 0;
     const tokenSet = new Set(matcher.tokens);
 
-    // Name/title matches carry 4x weight
     for (const t of nameTokens) {
       if (tokenSet.has(t)) score += 4;
     }
-    // Description matches carry 1x weight
     for (const t of descTokens) {
       if (tokenSet.has(t)) score += 1;
     }
@@ -211,7 +209,7 @@ function extractTags(item, category) {
     'art', 'doodle', 'design', 'cooking', 'recipes', 'startups', 'investing',
     'deals', 'cinema', 'tv', 'anime', 'memes', 'satire', 'engineering',
     'hardware', 'careers', 'study', 'soccer', 'f1', 'cats', 'music', 'science',
-    'fitness', 'coffee', 'synth', 'space', 'finance', 'adult', 'boudoir', 'cosplay'
+    'fitness', 'coffee', 'synth', 'space', 'finance', 'adult'
   ];
   for (const t of tagCandidates) {
     if (text.includes(t) && tags.size < 4) {
@@ -226,665 +224,21 @@ function extractTags(item, category) {
   return Array.from(tags);
 }
 
-// Comprehensive newly-created (1h to 14d) & 90-day breakout (15d to 88d) subreddits across all 12 categories
-const CURATED_BOOST_SUBREDDITS = [
-  // 1. Technology & AI
-  {
-    display_name: 'AgenticCoding',
-    title: 'Agentic Coding & Autonomous Workflows',
-    public_description: 'Building, benchmarking, and shipping software with autonomous coding agents, MCP servers, and multi-agent developer workflows.',
-    subscribers: 24820,
-    num_posts: 1620,
-    num_comments: 21840,
-    age_hours: 14,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Technology & AI',
-    primary_color: '#ff4500'
-  },
-  {
-    display_name: 'LocalLLMAgents',
-    title: 'Local LLM Agents & Tool Calling',
-    public_description: 'Running quantized tool-calling models locally on consumer GPUs, Apple Silicon clusters, and unified memory workstations.',
-    subscribers: 940,
-    num_posts: 114,
-    num_comments: 982,
-    age_hours: 5,
-    allow_images: true,
-    allow_videos: false,
-    category: 'Technology & AI',
-    primary_color: '#d9381e'
-  },
-  {
-    display_name: 'MCPServers',
-    title: 'Model Context Protocol Servers & Integrations',
-    public_description: 'Share and discover open-source MCP servers, tool definitions, and agent security patterns for connecting LLMs to live data.',
-    subscribers: 46910,
-    num_posts: 2850,
-    num_comments: 34400,
-    age_hours: 24 * 34,
-    allow_images: false,
-    allow_videos: false,
-    category: 'Technology & AI',
-    primary_color: '#b91c1c'
-  },
-  {
-    display_name: 'SelfHostedAIStack',
-    title: 'Self-Hosted AI Inference & Homelab Clusters',
-    public_description: 'Docker compose stacks, vLLM benchmarks, and quiet rack builds for private self-hosted AI assistants.',
-    subscribers: 3420,
-    num_posts: 290,
-    num_comments: 3120,
-    age_hours: 24 * 4,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Technology & AI',
-    primary_color: '#ea580c'
-  },
-  {
-    display_name: 'RustEmbeddedSystems',
-    title: 'Bare-Metal & Embedded Rust Firmware',
-    public_description: 'Writing memory-safe firmware for RISC-V, STM32, and ESP32 microcontrollers using Embassy and no_std Rust.',
-    subscribers: 12840,
-    num_posts: 740,
-    num_comments: 8920,
-    age_hours: 24 * 48,
-    allow_images: false,
-    allow_videos: false,
-    category: 'Technology & AI',
-    primary_color: '#c2410c'
-  },
-
-  // 2. Gaming
-  {
-    display_name: 'IndieCozySim',
-    title: 'Cozy & Life Simulation Indie Games',
-    public_description: 'A community for players and solo developers building cozy life sims, town builders, farming RPGs, and diorama worlds.',
-    subscribers: 780,
-    num_posts: 98,
-    num_comments: 840,
-    age_hours: 7,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Gaming',
-    primary_color: '#e11d48'
-  },
-  {
-    display_name: 'HandheldModding',
-    title: 'Retro & Modern Handheld Console Modding',
-    public_description: 'OLED screen swaps, custom CNC aluminum shells, Linux CFW, and Hall-effect stick upgrades for portable gaming handhelds.',
-    subscribers: 29300,
-    num_posts: 2190,
-    num_comments: 27100,
-    age_hours: 24 * 41,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Gaming',
-    primary_color: '#ff4500'
-  },
-  {
-    display_name: 'DeckbuilderTheory',
-    title: 'Roguelike Deckbuilder Design & Synergy Lab',
-    public_description: 'Deep mechanical analysis, probability curves, and custom mod showcases for roguelike deckbuilding games.',
-    subscribers: 2890,
-    num_posts: 310,
-    num_comments: 3450,
-    age_hours: 24 * 5,
-    allow_images: false,
-    allow_videos: false,
-    category: 'Gaming',
-    primary_color: '#d97706'
-  },
-  {
-    display_name: 'SimRacingTelemetry',
-    title: 'Sim Racing MoTeC Telemetry & Setup Engineering',
-    public_description: 'Comparing brake trace overlays, damper histograms, and slip angle telemetry across iRacing, ACC, and AC Evo.',
-    subscribers: 14600,
-    num_posts: 1120,
-    num_comments: 15800,
-    age_hours: 24 * 58,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Gaming',
-    primary_color: '#dc2626'
-  },
-
-  // 3. Science & Engineering
-  {
-    display_name: 'FusionGridWatch',
-    title: 'Commercial Fusion & Grid Scale Storage',
-    public_description: 'Tracking tokamak milestones, HTS magnet tests, stellarator experiments, and gigawatt-hour sodium-ion grid batteries.',
-    subscribers: 1120,
-    num_posts: 105,
-    num_comments: 1190,
-    age_hours: 11,
-    allow_images: true,
-    allow_videos: false,
-    category: 'Science & Engineering',
-    primary_color: '#0d9488'
-  },
-  {
-    display_name: 'OrbitalMechanicsLab',
-    title: 'Orbital Mechanics & Launch Telemetry',
-    public_description: 'Amateur trajectory analysis, stage separation telemetry plots, and reusable rocket propulsion engineering breakdowns.',
-    subscribers: 26840,
-    num_posts: 1440,
-    num_comments: 19300,
-    age_hours: 24 * 52,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Science & Engineering',
-    primary_color: '#ff4500'
-  },
-  {
-    display_name: 'OpenSourceBioLab',
-    title: 'Citizen Biology, Microscopy & Open Lab Hardware',
-    public_description: '3D-printed centrifuges, phase-contrast microscopy captures, and open-source wetlab automation instrumentation.',
-    subscribers: 3740,
-    num_posts: 285,
-    num_comments: 2910,
-    age_hours: 24 * 6,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Science & Engineering',
-    primary_color: '#059669'
-  },
-  {
-    display_name: 'SolidStateCells',
-    title: 'Solid-State Battery Chemistry & Anode Research',
-    public_description: 'Peer-reviewed paper breakdowns, Wh/kg density benchmarks, and manufacturing scale-up for next-gen energy storage.',
-    subscribers: 11950,
-    num_posts: 690,
-    num_comments: 9400,
-    age_hours: 24 * 64,
-    allow_images: false,
-    allow_videos: false,
-    category: 'Science & Engineering',
-    primary_color: '#b91c1c'
-  },
-
-  // 4. Finance & Business
-  {
-    display_name: 'BootstrappedMicroSaaS',
-    title: 'Bootstrapped Micro-SaaS Founders',
-    public_description: 'Transparent MRR breakdowns, zero-VC product launches, churn post-mortems, and solo-founder B2B customer acquisition.',
-    subscribers: 1490,
-    num_posts: 180,
-    num_comments: 1990,
-    age_hours: 9,
-    allow_images: false,
-    allow_videos: false,
-    category: 'Finance & Business',
-    primary_color: '#15803d'
-  },
-  {
-    display_name: 'FixedIncomeAlpha',
-    title: 'Bond Markets, Treasury Auctions & Macro Rates',
-    public_description: 'Deep-dive discussions on sovereign yield curves, treasury auction tails, and global central bank liquidity plumbing.',
-    subscribers: 24450,
-    num_posts: 1540,
-    num_comments: 21500,
-    age_hours: 24 * 63,
-    allow_images: false,
-    allow_videos: false,
-    category: 'Finance & Business',
-    primary_color: '#991b1b'
-  },
-  {
-    display_name: 'B2BPricingStrategy',
-    title: 'SaaS Packaging, Usage-Based Billing & Monetization',
-    public_description: 'Case studies on seat vs. consumption pricing, enterprise procurement negotiations, and net dollar retention.',
-    subscribers: 4120,
-    num_posts: 310,
-    num_comments: 3780,
-    age_hours: 24 * 4,
-    allow_images: false,
-    allow_videos: false,
-    category: 'Finance & Business',
-    primary_color: '#c2410c'
-  },
-  {
-    display_name: 'SupplyChainSignals',
-    title: 'Global Freight Rates, Port Telemetry & Commodities',
-    public_description: 'Tracking container spot indices, air cargo volume, semiconductor lead times, and industrial manufacturing PMIs.',
-    subscribers: 16200,
-    num_posts: 980,
-    num_comments: 12400,
-    age_hours: 24 * 45,
-    allow_images: true,
-    allow_videos: false,
-    category: 'Finance & Business',
-    primary_color: '#dc2626'
-  },
-
-  // 5. Art & Design
-  {
-    display_name: 'IsometricPixelWorlds',
-    title: 'Isometric Pixel Art & Voxel Dioramas',
-    public_description: 'Showcasing handcrafted isometric pixel art, orthographic room renders, and limited-palette breakdown tutorials.',
-    subscribers: 1130,
-    num_posts: 142,
-    num_comments: 1245,
-    age_hours: 13,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Art & Design',
-    primary_color: '#e11d48'
-  },
-  {
-    display_name: 'SwissGridTypography',
-    title: 'Editorial Grids, Swiss Typography & Print Design',
-    public_description: 'Celebrating modernist layout systems, kinetic type specimens, bookbinding, and industrial graphic design.',
-    subscribers: 18920,
-    num_posts: 1020,
-    num_comments: 8430,
-    age_hours: 24 * 28,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Art & Design',
-    primary_color: '#dc2626'
-  },
-  {
-    display_name: 'IndustrialSketchbook',
-    title: 'Hardware Concept Sketching & CAD Surfacing',
-    public_description: 'Marker renders, Class-A Rhino/Alias surfacing, and physical foam prototypes from practicing industrial designers.',
-    subscribers: 3850,
-    num_posts: 340,
-    num_comments: 2890,
-    age_hours: 24 * 5,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Art & Design',
-    primary_color: '#ff4500'
-  },
-
-  // 6. Sports & Fitness
-  {
-    display_name: 'Zone2Endurance',
-    title: 'Zone 2 Aerobic Base & Longevity Training',
-    public_description: 'Lactate threshold testing, polarized running schedules, cycling power metrics, and mitochondrial endurance protocols.',
-    subscribers: 985,
-    num_posts: 118,
-    num_comments: 1020,
-    age_hours: 10,
-    allow_images: false,
-    allow_videos: false,
-    category: 'Sports & Fitness',
-    primary_color: '#ea580c'
-  },
-  {
-    display_name: 'TacticalBoardRoom',
-    title: 'Football Tactical Analysis & Passing Networks',
-    public_description: 'xG models, pressing traps, buildup structures, and post-match tactical diagrams across European and global football.',
-    subscribers: 21780,
-    num_posts: 1710,
-    num_comments: 28600,
-    age_hours: 24 * 47,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Sports & Fitness',
-    primary_color: '#16a34a'
-  },
-  {
-    display_name: 'GarageGymFabrication',
-    title: 'Custom Welded Gym Racks & Cable Attachments',
-    public_description: 'DIY steel fabrication, CNC knurling, pulley ratio mods, and compact home strength equipment blueprints.',
-    subscribers: 4620,
-    num_posts: 410,
-    num_comments: 4920,
-    age_hours: 24 * 6,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Sports & Fitness',
-    primary_color: '#dc2626'
-  },
-  {
-    display_name: 'AeroTrackTelemetry',
-    title: 'Motorsport Downforce, CFD & Lap Time Breakdowns',
-    public_description: 'Analyzing floor edge vortices, tire degradation curves, and qualifying mini-sector telemetry across F1 and WEC.',
-    subscribers: 15400,
-    num_posts: 1190,
-    num_comments: 18900,
-    age_hours: 24 * 36,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Sports & Fitness',
-    primary_color: '#b91c1c'
-  },
-
-  // 7. Lifestyle & Food
-  {
-    display_name: 'WokHeiLab',
-    title: 'High-Heat Wok Cooking & Stir-Fry Technique',
-    public_description: 'Carbon steel seasoning, outdoor BTU burner setups, velvet marinades, and restaurant-grade stir-fry at home.',
-    subscribers: 840,
-    num_posts: 109,
-    num_comments: 910,
-    age_hours: 6,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Lifestyle & Food',
-    primary_color: '#d97706'
-  },
-  {
-    display_name: 'EspressoProfiling',
-    title: 'Flow & Pressure Profiling Espresso Geeks',
-    public_description: 'Extraction telemetry, refractometer yields, flat burr geometry comparisons, and ultra-light roast dial-in logs.',
-    subscribers: 16890,
-    num_posts: 1320,
-    num_comments: 17400,
-    age_hours: 24 * 39,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Lifestyle & Food',
-    primary_color: '#92400e'
-  },
-  {
-    display_name: 'SourdoughFermentation',
-    title: 'Wild Yeast Kinetics, High-Hydration Crumbs & Hearth Baking',
-    public_description: 'Grain milling ratios, steam injection mods for home ovens, and naturally leavened panettone schedules.',
-    subscribers: 5120,
-    num_posts: 480,
-    num_comments: 5640,
-    age_hours: 24 * 4,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Lifestyle & Food',
-    primary_color: '#b45309'
-  },
-
-  // 8. Music & Audio
-  {
-    display_name: 'ModularSynthPatches',
-    title: 'Eurorack Patch Notes & Generative Ambient',
-    public_description: 'Share patch cable diagrams, clock-division tricks, West Coast wavefolding, and raw hardware synthesizer recordings.',
-    subscribers: 780,
-    num_posts: 94,
-    num_comments: 790,
-    age_hours: 15,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Music & Audio',
-    primary_color: '#dc2626'
-  },
-  {
-    display_name: 'LosslessSoundstage',
-    title: 'Mastering Dynamics, Planar IEMs & Acoustic Treatment',
-    public_description: 'Frequency response measurements, Room EQ Wizard waterfall plots, and high-dynamic-range album pressings.',
-    subscribers: 14420,
-    num_posts: 1090,
-    num_comments: 14300,
-    age_hours: 24 * 55,
-    allow_images: false,
-    allow_videos: false,
-    category: 'Music & Audio',
-    primary_color: '#991b1b'
-  },
-  {
-    display_name: 'TapeLoopExperiments',
-    title: '4-Track Cassette Loops & Analog Tape Saturation',
-    public_description: 'Modified Tascam portastudios, handmade splice loops, spring reverbs, and electro-acoustic sound design.',
-    subscribers: 3290,
-    num_posts: 270,
-    num_comments: 2410,
-    age_hours: 24 * 5,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Music & Audio',
-    primary_color: '#c2410c'
-  },
-
-  // 9. Career & Education
-  {
-    display_name: 'StaffEngPath',
-    title: 'Staff+ Engineering & Technical Leadership',
-    public_description: 'RFC writing, cross-org architecture alignment, engineering strategy, and navigating high-level IC leadership tracks.',
-    subscribers: 1290,
-    num_posts: 135,
-    num_comments: 1410,
-    age_hours: 17,
-    allow_images: false,
-    allow_videos: false,
-    category: 'Career & Education',
-    primary_color: '#b91c1c'
-  },
-  {
-    display_name: 'PhDDefensePrep',
-    title: 'Doctoral Dissertation Writing, Grants & Defense Prep',
-    public_description: 'Peer support and tactical advice for doctoral candidates navigating thesis committees, fellowships, and postdoc offers.',
-    subscribers: 11340,
-    num_posts: 820,
-    num_comments: 9870,
-    age_hours: 24 * 44,
-    allow_images: false,
-    allow_videos: false,
-    category: 'Career & Education',
-    primary_color: '#991b1b'
-  },
-  {
-    display_name: 'RemoteAsyncTeams',
-    title: 'Asynchronous Distributed Engineering & Product Operations',
-    public_description: 'Written culture playbooks, global compensation bands, and high-autonomy remote team workflows.',
-    subscribers: 4890,
-    num_posts: 360,
-    num_comments: 4120,
-    age_hours: 24 * 4,
-    allow_images: false,
-    allow_videos: false,
-    category: 'Career & Education',
-    primary_color: '#c2410c'
-  },
-
-  // 10. Memes & Humor
-  {
-    display_name: 'CorporateLore',
-    title: 'Absurd Corporate Slidedecks & Synergy Satire',
-    public_description: 'Celebrating unhinged calendar invites, 47-slide alignment decks, and passive-aggressive enterprise Slack threads.',
-    subscribers: 1620,
-    num_posts: 215,
-    num_comments: 2620,
-    age_hours: 8,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Memes & Humor',
-    primary_color: '#ff4500'
-  },
-  {
-    display_name: 'OverEngineeredMemes',
-    title: 'Unnecessarily Rigorous LaTeX & CAD Memes',
-    public_description: 'When a 3-second joke requires a full finite-element analysis simulation or a 14-node Mermaid state machine.',
-    subscribers: 22400,
-    num_posts: 1580,
-    num_comments: 19400,
-    age_hours: 24 * 32,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Memes & Humor',
-    primary_color: '#d97706'
-  },
-  {
-    display_name: 'OkBuddyCompiler',
-    title: 'Borrow Checker & Segfault Shitposting',
-    public_description: 'High-effort programming satire, linker error fever dreams, and absurd benchmark wars.',
-    subscribers: 6430,
-    num_posts: 540,
-    num_comments: 7120,
-    age_hours: 24 * 5,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Memes & Humor',
-    primary_color: '#ea580c'
-  },
-
-  // 11. Entertainment & Media
-  {
-    display_name: 'PracticalEffectsCinema',
-    title: 'In-Camera Practical Effects & Miniature Sets',
-    public_description: 'Behind-the-scenes breakdowns of animatronics, matte paintings, forced perspective, and physical stunt rigs in cinema.',
-    subscribers: 1310,
-    num_posts: 148,
-    num_comments: 1370,
-    age_hours: 19,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Entertainment & Media',
-    primary_color: '#b91c1c'
-  },
-  {
-    display_name: 'HardSciFiBookClub',
-    title: 'Rigorous Hard Science Fiction & Speculative Literature',
-    public_description: 'Chapter discussions, author AMAs, and worldbuilding critiques for physics-grounded science fiction novels.',
-    subscribers: 17650,
-    num_posts: 1230,
-    num_comments: 16900,
-    age_hours: 24 * 49,
-    allow_images: false,
-    allow_videos: false,
-    category: 'Entertainment & Media',
-    primary_color: '#991b1b'
-  },
-  {
-    display_name: '70mmFilmProjection',
-    title: 'Analog IMAX, 70mm Print Preservation & Archival Screenings',
-    public_description: 'Tracking analog projection booths, celluloid restoration projects, and repertory theater print schedules worldwide.',
-    subscribers: 4720,
-    num_posts: 380,
-    num_comments: 4290,
-    age_hours: 24 * 4,
-    allow_images: true,
-    allow_videos: true,
-    category: 'Entertainment & Media',
-    primary_color: '#dc2626'
-  },
-
-  // 12. NSFW & Adult (18+)
-  {
-    display_name: 'AfterDarkIntimacy',
-    title: 'Adult Relationships, Intimacy & After-Dark Q&A (18+)',
-    public_description: 'An open, judgment-free 18+ adult community for candid discussions on intimacy, relationships, desires, and nighttime confessions.',
-    subscribers: 1840,
-    num_posts: 240,
-    num_comments: 3180,
-    age_hours: 4,
-    over18: true,
-    allow_images: false,
-    allow_videos: false,
-    category: 'NSFW & Adult',
-    primary_color: '#e11d48'
-  },
-  {
-    display_name: 'BoudoirAestheticsNSFW',
-    title: 'Artistic Boudoir Photography & Lighting (18+ NSFW)',
-    public_description: 'Verified 18+ creators and photographers sharing dramatic chiaroscuro lighting, studio boudoir sets, and tasteful adult portraiture.',
-    subscribers: 42600,
-    num_posts: 3120,
-    num_comments: 29400,
-    age_hours: 24 * 31,
-    over18: true,
-    allow_images: true,
-    allow_videos: true,
-    category: 'NSFW & Adult',
-    primary_color: '#be123c'
-  },
-  {
-    display_name: 'SpicyRomanceBookClub',
-    title: '18+ Erotic Romance, Dark Fantasy & Smut Readers',
-    public_description: 'Uncensored book reviews, spice-level ratings, author recommendations, and chapter discussions for 18+ adult romance readers.',
-    subscribers: 28900,
-    num_posts: 2340,
-    num_comments: 38700,
-    age_hours: 24 * 46,
-    over18: true,
-    allow_images: false,
-    allow_videos: false,
-    category: 'NSFW & Adult',
-    primary_color: '#9f1239'
-  },
-  {
-    display_name: 'NSFWDigitalIllust',
-    title: '18+ Adult Character Art & Concept Illustration',
-    public_description: 'A dedicated hub for digital artists sharing 18+ NSFW character illustrations, anatomy studies, and commission portfolios.',
-    subscribers: 35400,
-    num_posts: 2780,
-    num_comments: 24100,
-    age_hours: 24 * 27,
-    over18: true,
-    allow_images: true,
-    allow_videos: true,
-    category: 'NSFW & Adult',
-    primary_color: '#e11d48'
-  },
-  {
-    display_name: 'CosplayAfterHours18',
-    title: '18+ Adult Cosplay & Costume Shoots (NSFW)',
-    public_description: 'After-hours 18+ cosplay photography, prop crafting, and adult convention afterparty sets from verified creators.',
-    subscribers: 19750,
-    num_posts: 1490,
-    num_comments: 16200,
-    age_hours: 24 * 19,
-    over18: true,
-    allow_images: true,
-    allow_videos: true,
-    category: 'NSFW & Adult',
-    primary_color: '#be123c'
-  },
-  {
-    display_name: 'AdultVisualNovelsDev',
-    title: '18+ NSFW Indie Games & Adult Visual Novel Development',
-    public_description: 'Devlogs, RenPy scripting, Live2D animation, and new release discussions for 18+ adult indie games and visual novels.',
-    subscribers: 6820,
-    num_posts: 520,
-    num_comments: 6140,
-    age_hours: 24 * 3,
-    over18: true,
-    allow_images: true,
-    allow_videos: true,
-    category: 'NSFW & Adult',
-    primary_color: '#9f1239'
-  },
-  {
-    display_name: 'KinkEducation101',
-    title: 'Consent-First BDSM, Kink & Adult Wellness Education (18+)',
-    public_description: 'Safety protocols, communication frameworks, gear reviews, and beginner-friendly 18+ adult education.',
-    subscribers: 14900,
-    num_posts: 980,
-    num_comments: 15300,
-    age_hours: 24 * 38,
-    over18: true,
-    allow_images: false,
-    allow_videos: false,
-    category: 'NSFW & Adult',
-    primary_color: '#881337'
-  },
-  {
-    display_name: 'LateNightConfessions18',
-    title: 'Uncensored 18+ Adult Stories & Wild Experiences',
-    public_description: 'Newly created 18+ community for sharing anonymous adult encounters, dating app stories, and unfiltered late-night discussions.',
-    subscribers: 2450,
-    num_posts: 310,
-    num_comments: 4290,
-    age_hours: 12,
-    over18: true,
-    allow_images: false,
-    allow_videos: false,
-    category: 'NSFW & Adult',
-    primary_color: '#e11d48'
-  }
-];
-
 function computeMetrics(item, nowSec) {
   const ageSec = Math.max(1800, nowSec - item.created_utc);
   const ageDays = Math.max(0.25, ageSec / 86400);
-  const subscribers = Math.max(1, Number(item.subscribers) || 1);
-  const numPosts = Number(item.num_posts) || Math.max(1, Math.round(subscribers * 0.035));
-  const numComments = Number(item.num_comments) || Math.max(2, Math.round(numPosts * 7.5));
-  const subsPerDay = Math.max(1, Math.round(subscribers / ageDays));
+  const subscribers = Math.max(0, Number(item.subscribers) || 0);
+  // Preserve real post/comment counts from Reddit/Arctic Shift without fabricating fake numbers
+  const numPosts = item.num_posts !== null && item.num_posts !== undefined ? Number(item.num_posts) : null;
+  const numComments = item.num_comments !== null && item.num_comments !== undefined ? Number(item.num_comments) : null;
+  const subsPerDay = Math.max(0, Math.round(subscribers / ageDays));
 
-  // Heat Score (0-100): blends subscriber velocity, total subscribers, and comment/post activity
+  // Heat Score (0-100): computed strictly from real subscribers, daily velocity, and real post/comment counts
   const velocityFactor = Math.min(45, Math.log10(subsPerDay + 1) * 14.5);
   const sizeFactor = Math.min(35, Math.log10(subscribers + 1) * 7.2);
-  const engagementFactor = Math.min(20, Math.log10(numComments + numPosts + 1) * 4.2);
-  const heatScore = Math.min(99, Math.max(38, Math.round(velocityFactor + sizeFactor + engagementFactor)));
+  const activitySum = (numPosts || 0) + (numComments || 0);
+  const engagementFactor = activitySum > 0 ? Math.min(20, Math.log10(activitySum + 1) * 4.2) : 0;
+  const heatScore = Math.min(99, Math.max(10, Math.round(velocityFactor + sizeFactor + engagementFactor)));
 
   return {
     subscribers,
@@ -893,6 +247,46 @@ function computeMetrics(item, nowSec) {
     subs_per_day: subsPerDay,
     age_days: Number(ageDays.toFixed(1)),
     heat_score: heatScore
+  };
+}
+
+function normalizeRawSubreddit(r, sourceLabel, nowSec) {
+  if (!r || !r.display_name || r.display_name.startsWith('u_')) return null;
+  const text = `${r.display_name} ${r.title || ''} ${r.public_description || ''}`;
+  if (BLOCKLIST_REGEX.test(text)) return null;
+  const desc = (r.public_description || '').trim();
+  if (desc.length < 12) return null;
+
+  const category = classifyCategory(r);
+  if (!category) return null;
+
+  const isNsfw = category === 'NSFW & Adult';
+  const createdUtc = Number(r.created_utc);
+  if (!createdUtc || Number.isNaN(createdUtc)) return null;
+
+  const base = {
+    id: r.id || r.display_name.toLowerCase(),
+    display_name: r.display_name,
+    title: r.title || r.display_name,
+    public_description: desc,
+    created_utc: createdUtc, // Strict unmodified Reddit creation timestamp
+    over18: Boolean(r.over18) || isNsfw,
+    category,
+    allow_images: r.allow_images !== false,
+    allow_videos: r.allow_videos !== false,
+    community_icon: (r.community_icon || r.icon_img || '').split('?')[0],
+    primary_color: r.primary_color || (isNsfw ? '#e11d48' : '#ff4500'),
+    subscribers: Number(r.subscribers) || 0,
+    num_posts: r._meta?.num_posts !== undefined && r._meta?.num_posts !== null ? Number(r._meta.num_posts) : null,
+    num_comments: r._meta?.num_comments !== undefined && r._meta?.num_comments !== null ? Number(r._meta.num_comments) : null,
+    source: sourceLabel
+  };
+
+  const metrics = computeMetrics(base, nowSec);
+  return {
+    ...base,
+    ...metrics,
+    tags: extractTags(base, category)
   };
 }
 
@@ -907,82 +301,12 @@ function buildDataset() {
     }
   }
 
-  const rawTimestamps = rawList.map(r => r.created_utc).filter(Boolean);
-  const maxRawUtc = rawTimestamps.length > 0 ? Math.max(...rawTimestamps) : nowSec;
-  const timeShift = Math.max(0, nowSec - maxRawUtc - 1800);
-
   const map = new Map();
-
   for (const r of rawList) {
-    if (!r.display_name || r.display_name.startsWith('u_')) continue;
-    const text = `${r.display_name} ${r.title || ''} ${r.public_description || ''}`;
-    if (BLOCKLIST_REGEX.test(text)) continue;
-    if ((r.public_description || '').trim().length < 15) continue;
-
-    const category = classifyCategory(r);
-    if (!category) continue;
-
-    const isNsfw = category === 'NSFW & Adult';
-    const shiftedUtc = Math.min(nowSec - 300, (r.created_utc || nowSec) + timeShift);
-
-    // Determine media support based on subreddit settings or description keywords
-    const isTextFocused = /\b(discuss|discussion|questions|stories|advice|interviews|study|rant|debates|ask)\b/i.test(text) &&
-      !/\b(pics|photos|videos|art|gifs|images|memes|doodle)\b/i.test(text);
-
-    const base = {
-      id: r.id || r.display_name.toLowerCase(),
-      display_name: r.display_name,
-      title: r.title || r.display_name,
-      public_description: (r.public_description || '').trim(),
-      created_utc: shiftedUtc,
-      over18: isNsfw,
-      category,
-      allow_images: isTextFocused ? false : (r.allow_images !== false),
-      allow_videos: isTextFocused ? false : (r.allow_videos !== false),
-      community_icon: (r.community_icon || r.icon_img || '').split('?')[0],
-      primary_color: r.primary_color || (isNsfw ? '#e11d48' : '#ff4500'),
-      subscribers: Number(r.subscribers) || 10,
-      num_posts: r._meta?.num_posts || null,
-      num_comments: r._meta?.num_comments || null,
-      source: 'reddit-arctic-live'
-    };
-    const metrics = computeMetrics(base, nowSec);
-    const enriched = {
-      ...base,
-      ...metrics,
-      tags: extractTags(base, category)
-    };
-    map.set(enriched.display_name.toLowerCase(), enriched);
-  }
-
-  // Merge curated high-signal subreddits across all 12 categories
-  for (const c of CURATED_BOOST_SUBREDDITS) {
-    const createdUtc = nowSec - Math.round(c.age_hours * 3600);
-    const isAdult = Boolean(c.over18) || c.category === 'NSFW & Adult';
-    const base = {
-      id: c.display_name.toLowerCase(),
-      display_name: c.display_name,
-      title: c.title,
-      public_description: c.public_description,
-      created_utc: createdUtc,
-      over18: isAdult,
-      category: c.category,
-      allow_images: c.allow_images !== false,
-      allow_videos: c.allow_videos !== false,
-      community_icon: '',
-      primary_color: c.primary_color || (isAdult ? '#e11d48' : '#ff4500'),
-      subscribers: c.subscribers,
-      num_posts: c.num_posts,
-      num_comments: c.num_comments,
-      source: 'reddit-live-index'
-    };
-    const metrics = computeMetrics(base, nowSec);
-    const enriched = {
-      ...base,
-      ...metrics,
-      tags: extractTags(base, c.category)
-    };
-    map.set(enriched.display_name.toLowerCase(), enriched);
+    const normalized = normalizeRawSubreddit(r, 'reddit-arctic-live', nowSec);
+    if (normalized) {
+      map.set(normalized.display_name.toLowerCase(), normalized);
+    }
   }
 
   const finalList = Array.from(map.values());
@@ -1011,67 +335,127 @@ function loadSubreddits() {
   }
 }
 
+async function fetchRedditOAuthNew() {
+  const clientId = process.env.REDDIT_CLIENT_ID;
+  const clientSecret = process.env.REDDIT_CLIENT_SECRET;
+  if (!clientId || !clientSecret) return [];
+
+  try {
+    const auth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64');
+    const tokenRes = await fetch('https://www.reddit.com/api/v1/access_token', {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${auth}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'web:floop.radar:v1.0 (by /u/floop_app)'
+      },
+      body: 'grant_type=client_credentials',
+      signal: AbortSignal.timeout(6000)
+    });
+    const tokenData = await tokenRes.json();
+    if (!tokenData.access_token) return [];
+
+    const subRes = await fetch('https://oauth.reddit.com/subreddits/new.json?limit=100&raw_json=1', {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+        'User-Agent': 'web:floop.radar:v1.0 (by /u/floop_app)'
+      },
+      signal: AbortSignal.timeout(7000)
+    });
+    const subJson = await subRes.json();
+    const children = subJson?.data?.children || [];
+    return children.map(c => c.data).filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+}
+
+async function fetchDirectRedditNew() {
+  try {
+    const res = await fetch('https://www.reddit.com/subreddits/new.json?limit=100&raw_json=1', {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; FloopSubredditRadar/1.0)',
+        Accept: 'application/json'
+      },
+      signal: AbortSignal.timeout(5000)
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const children = json?.data?.children || [];
+    return children.map(c => c.data).filter(Boolean);
+  } catch (e) {
+    return [];
+  }
+}
+
 async function syncFromArcticShift() {
   const nowSec = Math.floor(Date.now() / 1000);
   const existing = loadSubreddits();
   const map = new Map(existing.map(s => [s.display_name.toLowerCase(), s]));
   let addedOrUpdated = 0;
+  const sourcesUsed = [];
 
-  try {
-    const url = 'https://arctic-shift.photon-reddit.com/api/subreddits/search?after=90d&min_subscribers=10&sort_type=created_utc&sort=desc&limit=50';
-    const res = await fetch(url, { signal: AbortSignal.timeout(7000) });
-    const json = await res.json();
-    if (json && Array.isArray(json.data) && json.data.length > 0) {
-      const maxUtc = Math.max(...json.data.map(r => r.created_utc || 0));
-      const shift = Math.max(0, nowSec - maxUtc - 600);
-      for (const r of json.data) {
-        if (!r.display_name || r.display_name.startsWith('u_')) continue;
-        const text = `${r.display_name} ${r.title || ''} ${r.public_description || ''}`;
-        if (BLOCKLIST_REGEX.test(text)) continue;
-        if ((r.public_description || '').trim().length < 15) continue;
-
-        const category = classifyCategory(r);
-        if (!category) continue;
-        const isNsfw = category === 'NSFW & Adult';
-
-        const base = {
-          id: r.id || r.display_name.toLowerCase(),
-          display_name: r.display_name,
-          title: r.title || r.display_name,
-          public_description: (r.public_description || '').trim(),
-          created_utc: Math.min(nowSec - 120, (r.created_utc || nowSec) + shift),
-          over18: isNsfw,
-          category,
-          allow_images: r.allow_images !== false,
-          allow_videos: r.allow_videos !== false,
-          community_icon: (r.community_icon || r.icon_img || '').split('?')[0],
-          primary_color: r.primary_color || (isNsfw ? '#e11d48' : '#ff4500'),
-          subscribers: Number(r.subscribers) || 10,
-          num_posts: r._meta?.num_posts || null,
-          num_comments: r._meta?.num_comments || null,
-          source: 'arctic-shift-live-sync'
-        };
-        const metrics = computeMetrics(base, nowSec);
-        map.set(base.display_name.toLowerCase(), {
-          ...base,
-          ...metrics,
-          tags: extractTags(base, category)
-        });
+  // 1) Try Reddit Official OAuth API if configured
+  const oauthItems = await fetchRedditOAuthNew();
+  if (oauthItems.length > 0) {
+    sourcesUsed.push('reddit-oauth-live');
+    for (const r of oauthItems) {
+      const normalized = normalizeRawSubreddit(r, 'reddit-oauth-live', nowSec);
+      if (normalized) {
+        map.set(normalized.display_name.toLowerCase(), normalized);
         addedOrUpdated++;
       }
-      const updatedList = Array.from(map.values());
-      try {
-        fs.mkdirSync(WRITABLE_DATA_DIR, { recursive: true });
-        fs.writeFileSync(WRITABLE_PROCESSED_FILE, JSON.stringify(updatedList, null, 2));
-      } catch (e) {}
     }
-  } catch (err) {
-    // Non-fatal if rate-limited; cache remains intact
+  }
+
+  // 2) Try direct Reddit JSON endpoint (works if server IP is permitted by Reddit)
+  const directItems = await fetchDirectRedditNew();
+  if (directItems.length > 0) {
+    sourcesUsed.push('reddit-direct-json');
+    for (const r of directItems) {
+      const normalized = normalizeRawSubreddit(r, 'reddit-direct-json', nowSec);
+      if (normalized) {
+        map.set(normalized.display_name.toLowerCase(), normalized);
+        addedOrUpdated++;
+      }
+    }
+  }
+
+  // 3) Sync from Arctic Shift Live Reddit Index (newest + hottest 90d)
+  const arcticUrls = [
+    'https://arctic-shift.photon-reddit.com/api/subreddits/search?after=90d&min_subscribers=5&sort_type=created_utc&sort=desc&limit=100',
+    'https://arctic-shift.photon-reddit.com/api/subreddits/search?after=90d&min_subscribers=200&sort_type=subscribers&sort=desc&limit=100'
+  ];
+
+  for (const url of arcticUrls) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(7000) });
+      const json = await res.json();
+      if (json && Array.isArray(json.data) && json.data.length > 0) {
+        if (!sourcesUsed.includes('arctic-shift-live')) sourcesUsed.push('arctic-shift-live');
+        for (const r of json.data) {
+          const normalized = normalizeRawSubreddit(r, 'arctic-shift-live', nowSec);
+          if (normalized) {
+            map.set(normalized.display_name.toLowerCase(), normalized);
+            addedOrUpdated++;
+          }
+        }
+      }
+    } catch (err) {}
+  }
+
+  if (addedOrUpdated > 0) {
+    const updatedList = Array.from(map.values());
+    try {
+      fs.mkdirSync(WRITABLE_DATA_DIR, { recursive: true });
+      fs.writeFileSync(WRITABLE_PROCESSED_FILE, JSON.stringify(updatedList, null, 2));
+    } catch (e) {}
   }
 
   return {
     total: map.size,
     synced: addedOrUpdated,
+    sourcesUsed,
     timestamp: new Date().toISOString()
   };
 }
@@ -1112,7 +496,6 @@ function querySubreddits(options = {}) {
   const isExplicitAdultCategory = String(category || '').toLowerCase().includes('nsfw') ||
     String(category || '').toLowerCase().includes('adult');
 
-  // Helper: check if an item passes all non-category filters
   function matchesNonCategoryFilters(item, enforceSfw) {
     if (enforceSfw && item.over18) return false;
     if (mediaOnly && !item.allow_images && !item.allow_videos) return false;
@@ -1123,7 +506,7 @@ function querySubreddits(options = {}) {
     if (minSubscribers > 0 && item.subscribers < minSubscribers) return false;
     if (maxSubscribers > 0 && item.subscribers > maxSubscribers) return false;
     if (minVelocity > 0 && item.subs_per_day < minVelocity) return false;
-    if (minActivity > 0 && (item.num_posts + item.num_comments) < minActivity) return false;
+    if (minActivity > 0 && ((item.num_posts || 0) + (item.num_comments || 0)) < minActivity) return false;
 
     if (searchLower) {
       const hay = `${item.display_name} ${item.title} ${item.public_description} ${item.category} ${(item.tags || []).join(' ')}`.toLowerCase();
@@ -1154,32 +537,33 @@ function querySubreddits(options = {}) {
     if (effectiveSort === 'heat_desc') return (b.heat_score - a.heat_score) || (b.subscribers - a.subscribers);
     if (effectiveSort === 'subscribers_desc') return b.subscribers - a.subscribers;
     if (effectiveSort === 'velocity_desc') return b.subs_per_day - a.subs_per_day;
-    if (effectiveSort === 'activity_desc') return (b.num_comments + b.num_posts) - (a.num_comments + a.num_posts);
+    if (effectiveSort === 'activity_desc') return ((b.num_comments || 0) + (b.num_posts || 0)) - ((a.num_comments || 0) + (a.num_posts || 0));
     return b.created_utc - a.created_utc;
   });
 
-  // Dynamic category counts that reflect all active filters (timeframe, minSubscribers, minVelocity, mediaOnly, search)
   const categoryCounts = { All: 0 };
   for (const cat of CATEGORIES) categoryCounts[cat] = 0;
   for (const item of all) {
-    // For the item's own category pill, check if it matches all active non-category filters (allowing over18 for NSFW & Adult pill)
     const isItemAdultCat = item.category === 'NSFW & Adult';
     if (matchesNonCategoryFilters(item, isItemAdultCat ? false : sfwOnly)) {
       if (categoryCounts[item.category] !== undefined) {
         categoryCounts[item.category]++;
       }
     }
-    // For the "All Categories" pill, respect sfwOnly
     if (matchesNonCategoryFilters(item, sfwOnly)) {
       categoryCounts.All++;
     }
   }
 
+  const allTimestamps = all.map(i => i.created_utc).filter(Boolean);
+  const newestIndexedUtc = allTimestamps.length > 0 ? Math.max(...allTimestamps) : null;
+
   return {
     items: filtered.slice(0, Number(limit) || 100),
     totalMatched: filtered.length,
     categoryCounts,
-    categories: CATEGORIES
+    categories: CATEGORIES,
+    newestIndexedUtc
   };
 }
 

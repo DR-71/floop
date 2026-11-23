@@ -18,13 +18,20 @@ Explore newly created subreddits live by category, subscriber thresholds, media 
 
 | Variable | Description |
 | :--- | :--- |
+| `REDDIT_CLIENT_ID` | Optional Reddit OAuth app client ID for live `/subreddits/new.json` polling without cloud IP blocks |
+| `REDDIT_CLIENT_SECRET` | Optional Reddit OAuth app client secret (paired with `REDDIT_CLIENT_ID`) |
 | `RESEND_API_KEY` | Optional Resend API key (`re_...`) for direct inbox delivery |
 | `RESEND_FROM` | Verified Resend sender email (defaults to `onboarding@resend.dev`) |
 | `SMTP_HOST` | Optional custom SMTP host (defaults to `smtp.gmail.com`) |
 | `SMTP_PORT` | Optional custom SMTP port (defaults to `587`) |
 | `SMTP_USER` | Optional SMTP username / Gmail address |
 | `SMTP_PASS` | Optional SMTP password / Gmail 16-char App Password |
+| `SMTP_FROM` | Optional full `From` header (e.g. `floop <noreply@yourdomain.com>`) |
+| `FLOOP_FROM_EMAIL` | Optional sender email override when using generic `floop` branding |
+| `FLOOP_FROM_NAME` | Optional sender display name (defaults to `floop`) |
 | `SENDGRID_API_KEY` | Optional SendGrid v3 API key |
+| `KV_REST_API_URL` | Optional Upstash / Vercel KV REST URL for persistent alerts & digest logs |
+| `KV_REST_API_TOKEN` | Optional Upstash / Vercel KV REST token |
 | `FLOOP_WEBHOOK_URL` | Optional webhook URL triggered on every daily digest dispatch |
 
 ## Local Development

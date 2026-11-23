@@ -85,10 +85,8 @@ function buildDailyDigestEmail({
               <strong style="color: #0f172a;">${formatNumber(sub.subscribers)}</strong> members
               &nbsp;&bull;&nbsp;
               <strong style="color: #0284c7;">+${formatNumber(sub.subs_per_day)}/day</strong> velocity
-              &nbsp;&bull;&nbsp;
-              <strong>${formatNumber(sub.num_posts)}</strong> posts
-              &nbsp;&bull;&nbsp;
-              <strong>${formatNumber(sub.num_comments)}</strong> comments
+              ${sub.num_posts !== null && sub.num_posts !== undefined ? `&nbsp;&bull;&nbsp; <strong>${formatNumber(sub.num_posts)}</strong> posts` : ''}
+              ${sub.num_comments !== null && sub.num_comments !== undefined ? `&nbsp;&bull;&nbsp; <strong>${formatNumber(sub.num_comments)}</strong> comments` : ''}
               &nbsp;&bull;&nbsp;
               <a href="${redditUrl}" target="_blank" style="color: #ea580c; font-weight: 600; text-decoration: none;">Explore on Reddit &rarr;</a>
             </div>
@@ -129,10 +127,8 @@ function buildDailyDigestEmail({
               <strong style="color: #0f172a;">${formatNumber(sub.subscribers)}</strong> subscribers
               &nbsp;&bull;&nbsp;
               <strong style="color: #ea580c;">+${formatNumber(sub.subs_per_day)} subs/day</strong>
-              &nbsp;&bull;&nbsp;
-              <strong>${formatNumber(sub.num_posts)}</strong> posts
-              &nbsp;&bull;&nbsp;
-              <strong>${formatNumber(sub.num_comments)}</strong> comments
+              ${sub.num_posts !== null && sub.num_posts !== undefined ? `&nbsp;&bull;&nbsp; <strong>${formatNumber(sub.num_posts)}</strong> posts` : ''}
+              ${sub.num_comments !== null && sub.num_comments !== undefined ? `&nbsp;&bull;&nbsp; <strong>${formatNumber(sub.num_comments)}</strong> comments` : ''}
               &nbsp;&bull;&nbsp;
               <a href="${redditUrl}" target="_blank" style="color: #ea580c; font-weight: 600; text-decoration: none;">Visit Subreddit &rarr;</a>
             </div>

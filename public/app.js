@@ -7,7 +7,7 @@
 const state = {
   view: 'split', // 'split' | 'new' | 'hot90d' | 'automations'
   category: 'All',
-  timeframe: '30d',
+  timeframe: '90d',
   minSubscribers: 10,
   minVelocity: 0,
   sortBy: 'default',
@@ -169,12 +169,8 @@ function renderSubredditCard(sub, index, mode = 'new') {
           <span class="stat-chip stat-velocity">
             +${formatNumber(sub.subs_per_day)}/day
           </span>
-          <span class="stat-chip">
-            <strong>${formatNumber(sub.num_posts)}</strong> posts
-          </span>
-          <span class="stat-chip">
-            <strong>${formatNumber(sub.num_comments)}</strong> comments
-          </span>
+          ${sub.num_posts !== null && sub.num_posts !== undefined ? `<span class="stat-chip"><strong>${formatNumber(sub.num_posts)}</strong> posts</span>` : ''}
+          ${sub.num_comments !== null && sub.num_comments !== undefined ? `<span class="stat-chip"><strong>${formatNumber(sub.num_comments)}</strong> comments</span>` : ''}
         </div>
         <button
           type="button"
@@ -270,8 +266,8 @@ function renderExplorerFeeds() {
 
   const emptyStateHtml = `
     <div style="padding: 32px 20px; text-align: center; color: var(--text-secondary);">
-      <div style="font-weight: 700; font-size: 15px; margin-bottom: 6px;">No subreddits matched these exact filters</div>
-      <div style="font-size: 12.5px; margin-bottom: 12px;">Try expanding the New Window to <strong>Last 30 Days</strong> or <strong>Last 90 Days</strong>, or lowering the minimum subscriber threshold.</div>
+      <div style="font-weight: 700; font-size: 15px; margin-bottom: 6px;">No real subreddits matched this exact filter window</div>
+      <div style="font-size: 12.5px; margin-bottom: 12px;">Switch New Window to <strong>Last 90 Days (All New)</strong> or lower the minimum subscriber threshold. (Add <code>REDDIT_CLIENT_ID</code> &amp; <code>REDDIT_CLIENT_SECRET</code> in Vercel for minute-by-minute live 24h Reddit OAuth).</div>
       <button type="button" class="btn btn-sm btn-primary" onclick="window.floopResetFilters()">Reset Discovery Filters</button>
     </div>
   `;
@@ -499,7 +495,7 @@ function computeClientRadarData() {
   const all = (window.FLOOP_EMBEDDED_SUBREDDITS || []).map(item => ({ ...item }));
   const nowSec = Math.floor(Date.now() / 1000);
   const tfMap = { '24h': 86400 * 1.5, '7d': 86400 * 7, '30d': 86400 * 30, '90d': 86400 * 90 };
-  const newMaxAge = tfMap[state.timeframe] || 86400 * 30;
+  const newMaxAge = tfMap[state.timeframe] || 86400 * 90;
   const hotMaxAge = 86400 * 90;
   const searchLower = String(state.search || '').trim().toLowerCase();
   const isAdultCat = String(state.category || '').toLowerCase().includes('nsfw') ||
@@ -525,7 +521,7 @@ function computeClientRadarData() {
       if (s === 'heat_desc') return (b.heat_score - a.heat_score) || (b.subscribers - a.subscribers);
       if (s === 'subscribers_desc') return b.subscribers - a.subscribers;
       if (s === 'velocity_desc') return b.subs_per_day - a.subs_per_day;
-      if (s === 'activity_desc') return (b.num_comments + b.num_posts) - (a.num_comments + a.num_posts);
+      if (s === 'activity_desc') return ((b.num_comments || 0) + (b.num_posts || 0)) - ((a.num_comments || 0) + (a.num_posts || 0));
       return b.created_utc - a.created_utc;
     });
   }
@@ -699,7 +695,7 @@ function buildClientFallbackDigest(payload) {
       ${(s.over18 || s.category === 'NSFW & Adult') ? `<span style="margin-left:6px;padding:2px 7px;border-radius:99px;background:#ffe4e6;color:#be123c;font-size:10.5px;font-weight:800;">18+ NSFW</span>` : ''}
       <span style="margin-left:8px;padding:2px 8px;border-radius:99px;background:#fff7ed;color:#c2410c;font-size:11px;font-weight:600;">NEW &bull; ${escapeHtml(formatRelativeAge(s.created_utc))}</span>
       <p style="margin:4px 0 6px 0;color:#334155;font-size:13px;">${escapeHtml(s.public_description)}</p>
-      <div style="font-size:12px;color:#64748b;"><strong>${formatNumber(s.subscribers)}</strong> members &bull; <strong style="color:#ff4500;">+${formatNumber(s.subs_per_day)}/day</strong> &bull; ${formatNumber(s.num_posts)} posts</div>
+      <div style="font-size:12px;color:#64748b;"><strong>${formatNumber(s.subscribers)}</strong> members &bull; <strong style="color:#ff4500;">+${formatNumber(s.subs_per_day)}/day</strong>${(s.num_posts !== null && s.num_posts !== undefined) ? ` &bull; ${formatNumber(s.num_posts)} posts` : ''}</div>
     </div>
   `).join('');
 
@@ -710,7 +706,7 @@ function buildClientFallbackDigest(payload) {
       ${(s.over18 || s.category === 'NSFW & Adult') ? `<span style="margin-left:6px;padding:2px 7px;border-radius:99px;background:#ffe4e6;color:#be123c;font-size:10.5px;font-weight:800;">18+ NSFW</span>` : ''}
       <span style="margin-left:8px;padding:2px 8px;border-radius:99px;background:#fff1f2;color:#be123c;font-size:11px;font-weight:700;">HEAT ${s.heat_score}</span>
       <p style="margin:4px 0 6px 0;color:#334155;font-size:13px;">${escapeHtml(s.public_description)}</p>
-      <div style="font-size:12px;color:#64748b;"><strong>${formatNumber(s.subscribers)}</strong> members &bull; <strong style="color:#ff4500;">+${formatNumber(s.subs_per_day)}/day</strong> &bull; ${formatNumber(s.num_comments)} comments</div>
+      <div style="font-size:12px;color:#64748b;"><strong>${formatNumber(s.subscribers)}</strong> members &bull; <strong style="color:#ff4500;">+${formatNumber(s.subs_per_day)}/day</strong>${(s.num_comments !== null && s.num_comments !== undefined) ? ` &bull; ${formatNumber(s.num_comments)} comments` : ''}</div>
     </div>
   `).join('');
 
@@ -1060,7 +1056,7 @@ document.addEventListener('DOMContentLoaded', () => {
       category,
       minSubscribers: state.minSubscribers || 10,
       sfwOnly: state.sfwOnly,
-      newTimeframe: state.timeframe || '30d',
+      newTimeframe: state.timeframe || '90d',
       newLimit: 5,
       hot90dLimit: 5,
       deliveryTime: '08:00',
@@ -1077,7 +1073,7 @@ document.addEventListener('DOMContentLoaded', () => {
       category,
       minSubscribers: state.minSubscribers || 10,
       sfwOnly: state.sfwOnly,
-      newTimeframe: state.timeframe || '30d',
+      newTimeframe: state.timeframe || '90d',
       newLimit: 5,
       hot90dLimit: 5,
       deliveryTime: '08:00'

@@ -73,7 +73,7 @@ app.get('/api/radar', (req, res) => {
     const newlyCreated = querySubreddits({
       ...commonFilters,
       mode: 'new',
-      timeframe: req.query.timeframe || '30d',
+      timeframe: req.query.timeframe || '90d',
       sortBy: req.query.newSortBy || 'created_desc',
       limit: Number(req.query.limit) || 60
     });
