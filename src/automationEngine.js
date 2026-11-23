@@ -52,49 +52,111 @@ function defaultState() {
   };
 }
 
+function getKvCredentials() {
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
+  return url && token ? { url: url.replace(/\/$/, ''), token } : null;
+}
+
+function mergeWithEnvDefaults(parsed = {}) {
+  const def = defaultState();
+  const savedCfg = parsed.transportConfig || {};
+  const savedProvider = savedCfg.provider || 'ethereal';
+  const effectiveProvider = (savedProvider === 'ethereal' && def.transportConfig.provider !== 'ethereal')
+    ? def.transportConfig.provider
+    : savedProvider;
+
+  return {
+    ...def,
+    ...parsed,
+    transportConfig: {
+      ...def.transportConfig,
+      ...savedCfg,
+      provider: effectiveProvider,
+      fromEmail: def.transportConfig.smtp.user || savedCfg.fromEmail || def.transportConfig.fromEmail,
+      smtp: {
+        ...def.transportConfig.smtp,
+        ...(savedCfg.smtp || {}),
+        host: process.env.SMTP_HOST || savedCfg.smtp?.host || def.transportConfig.smtp.host,
+        port: Number(process.env.SMTP_PORT || savedCfg.smtp?.port || def.transportConfig.smtp.port || 587),
+        user: savedCfg.smtp?.user || def.transportConfig.smtp.user,
+        pass: savedCfg.smtp?.pass || def.transportConfig.smtp.pass
+      },
+      resend: {
+        ...def.transportConfig.resend,
+        ...(savedCfg.resend || {}),
+        apiKey: savedCfg.resend?.apiKey || def.transportConfig.resend.apiKey,
+        fromEmail: process.env.RESEND_FROM || savedCfg.resend?.fromEmail || def.transportConfig.resend.fromEmail
+      },
+      sendgrid: {
+        ...def.transportConfig.sendgrid,
+        ...(savedCfg.sendgrid || {}),
+        apiKey: savedCfg.sendgrid?.apiKey || def.transportConfig.sendgrid.apiKey,
+        fromEmail: process.env.SENDGRID_FROM || savedCfg.sendgrid?.fromEmail || def.transportConfig.sendgrid.fromEmail
+      },
+      webhookUrl: process.env.FLOOP_WEBHOOK_URL || savedCfg.webhookUrl || def.transportConfig.webhookUrl
+    }
+  };
+}
+
 function loadState() {
+  if (memoryState) return memoryState;
   const targetFile = fs.existsSync(WRITABLE_AUTOMATIONS_FILE)
     ? WRITABLE_AUTOMATIONS_FILE
     : BUNDLED_AUTOMATIONS_FILE;
 
   if (!fs.existsSync(targetFile)) {
-    if (memoryState) return memoryState;
     const initial = defaultState();
     saveState(initial);
     return initial;
   }
   try {
     const parsed = JSON.parse(fs.readFileSync(targetFile, 'utf8'));
-    const def = defaultState();
-    const merged = {
-      ...def,
-      ...parsed,
-      transportConfig: {
-        ...def.transportConfig,
-        ...(parsed.transportConfig || {}),
-        smtp: {
-          ...def.transportConfig.smtp,
-          ...(parsed.transportConfig?.smtp || {}),
-          user: parsed.transportConfig?.smtp?.user || def.transportConfig.smtp.user,
-          pass: parsed.transportConfig?.smtp?.pass || def.transportConfig.smtp.pass
-        },
-        resend: {
-          ...def.transportConfig.resend,
-          ...(parsed.transportConfig?.resend || {}),
-          apiKey: parsed.transportConfig?.resend?.apiKey || def.transportConfig.resend.apiKey
-        },
-        sendgrid: {
-          ...def.transportConfig.sendgrid,
-          ...(parsed.transportConfig?.sendgrid || {}),
-          apiKey: parsed.transportConfig?.sendgrid?.apiKey || def.transportConfig.sendgrid.apiKey
-        }
-      }
-    };
+    const merged = mergeWithEnvDefaults(parsed);
     memoryState = merged;
     return merged;
   } catch (e) {
     return memoryState || defaultState();
   }
+}
+
+async function hydrateStateFromKV() {
+  const kv = getKvCredentials();
+  if (!kv) return loadState();
+  try {
+    const res = await fetch(`${kv.url}/get/floop_automations_state`, {
+      headers: { Authorization: `Bearer ${kv.token}` },
+      signal: AbortSignal.timeout(4000)
+    });
+    const json = await res.json();
+    if (json && json.result) {
+      const parsed = typeof json.result === 'string' ? JSON.parse(json.result) : json.result;
+      const merged = mergeWithEnvDefaults(parsed);
+      memoryState = merged;
+      try {
+        fs.mkdirSync(WRITABLE_DATA_DIR, { recursive: true });
+        fs.writeFileSync(WRITABLE_AUTOMATIONS_FILE, JSON.stringify(merged, null, 2));
+      } catch (e) {}
+      return merged;
+    }
+  } catch (e) {}
+  return loadState();
+}
+
+async function persistStateToKV(state) {
+  const kv = getKvCredentials();
+  if (!kv) return;
+  try {
+    await fetch(`${kv.url}/set/floop_automations_state`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${kv.token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(JSON.stringify(state)),
+      signal: AbortSignal.timeout(4000)
+    });
+  } catch (e) {}
 }
 
 function saveState(state) {
@@ -103,6 +165,7 @@ function saveState(state) {
     fs.mkdirSync(WRITABLE_DATA_DIR, { recursive: true });
     fs.writeFileSync(WRITABLE_AUTOMATIONS_FILE, JSON.stringify(state, null, 2));
   } catch (e) {}
+  persistStateToKV(state).catch(() => {});
 }
 
 // Sync client-provided transportConfig on stateless serverless invocations
@@ -308,6 +371,7 @@ async function dispatchEmail({ to, subject, html, text, subscription, newlyCreat
 }
 
 async function sendDigestForSubscription(subscriptionId, triggerReason = 'Scheduled Daily Automation', inlineTransportConfig = null) {
+  await hydrateStateFromKV();
   if (inlineTransportConfig) {
     applyInlineTransportOverride(inlineTransportConfig);
   }
@@ -399,6 +463,7 @@ async function sendDigestForSubscription(subscriptionId, triggerReason = 'Schedu
   state.outbox.unshift(outboxEntry);
   state.outbox = state.outbox.slice(0, 50);
   saveState(state);
+  await persistStateToKV(state);
 
   return {
     subscription: sub,
@@ -407,6 +472,7 @@ async function sendDigestForSubscription(subscriptionId, triggerReason = 'Schedu
 }
 
 async function createSubscription(payload) {
+  await hydrateStateFromKV();
   if (payload.transportConfig) {
     applyInlineTransportOverride(payload.transportConfig);
   }
@@ -442,6 +508,7 @@ async function createSubscription(payload) {
 
   state.subscriptions.unshift(newSub);
   saveState(state);
+  await persistStateToKV(state);
 
   let initialDelivery = null;
   if (payload.sendImmediate !== false) {
@@ -523,6 +590,7 @@ async function testTransportConnection(testPayload = {}) {
 
 async function runDailyCronTick({ forceAll = false, reason = 'Automated Daily Cron Job (24h Schedule)' } = {}) {
   lastCronTickAt = new Date().toISOString();
+  await hydrateStateFromKV();
   const state = loadState();
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
@@ -580,6 +648,7 @@ async function runDailyCronTick({ forceAll = false, reason = 'Automated Daily Cr
     });
     latestState.cronRuns = latestState.cronRuns.slice(0, 30);
     saveState(latestState);
+    await persistStateToKV(latestState);
   }
 
   return {
@@ -608,6 +677,7 @@ function getAutomationStatus() {
   return {
     schedulerRunning: Boolean(cronTask) || Boolean(process.env.VERCEL),
     realInboxActive,
+    kvConfigured: Boolean(getKvCredentials()),
     deliveryMode: realInboxActive ? 'real_inbox' : 'sandbox_ethereal',
     cronExpression: '* * * * * (Checks daily deliveryTime per subscriber once every 24h)',
     lastCronTickAt,
@@ -697,6 +767,8 @@ function deleteSubscription(id) {
 module.exports = {
   startDailyCronScheduler,
   getAutomationStatus,
+  hydrateStateFromKV,
+  persistStateToKV,
   createSubscription,
   sendDigestForSubscription,
   runDailyCronTick,

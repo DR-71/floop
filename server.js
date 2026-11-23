@@ -130,8 +130,9 @@ app.post('/api/subreddits/sync', async (req, res) => {
 });
 
 // 4. Get full Email Automation & Cron Scheduler Status
-app.get('/api/automations', (req, res) => {
+app.get('/api/automations', async (req, res) => {
   try {
+    await hydrateStateFromKV();
     res.json(getAutomationStatus());
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -163,8 +164,9 @@ app.post('/api/subscriptions/:id/send-now', async (req, res) => {
 });
 
 // 7. Pause / Resume a subscription
-app.patch('/api/subscriptions/:id/toggle', (req, res) => {
+app.patch('/api/subscriptions/:id/toggle', async (req, res) => {
   try {
+    await hydrateStateFromKV();
     const updated = toggleSubscriptionStatus(req.params.id);
     res.json(updated);
   } catch (err) {
@@ -173,8 +175,9 @@ app.patch('/api/subscriptions/:id/toggle', (req, res) => {
 });
 
 // 8. Delete a subscription
-app.delete('/api/subscriptions/:id', (req, res) => {
+app.delete('/api/subscriptions/:id', async (req, res) => {
   try {
+    await hydrateStateFromKV();
     const result = deleteSubscription(req.params.id);
     res.json(result);
   } catch (err) {
