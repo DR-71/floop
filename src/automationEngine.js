@@ -81,6 +81,11 @@ function mergeWithEnvDefaults(parsed = {}) {
         port: Number(process.env.SMTP_PORT || savedCfg.smtp?.port || def.transportConfig.smtp.port || 587),
         user: savedCfg.smtp?.user || def.transportConfig.smtp.user,
         pass: savedCfg.smtp?.pass || def.transportConfig.smtp.pass
+   ocess.env.SMTP_HOST || savedCfg.smtp?.host || def.transportConfig.smtp.host,
+        port: Number(process.env.SMTP_PORT || savedCfg.smtp?.port || def.transportConfig.smtp.port || 587),
+        user: savedCfg.smtp?.user || def.transportConfig.smtp.user,
+        pass: savedCfg.smtp?.pass || def.transportConfig.smtp.pass,
+        fromEmail: process.env.SMTP_FROM || process.env.FLOOP_FROM_EMAIL || savedCfg.smtp?.fromEmail || ''
       },
       resend: {
         ...def.transportConfig.resend,
@@ -264,7 +269,14 @@ async function dispatchEmail({ to, subject, html, text, subscription, newlyCreat
           pass: cleanPass
         }
       });
-      const fromAddr = cfg.smtp.user.includes('@') ? cfg.smtp.user.trim() : (cfg.fromEmail || 'alerts@floop.radar');
+      const fromAddr = (
+        cfg.smtp.fromEmail ||
+        process.env.SMTP_FROM ||
+        process.env.FLOOP_FROM_EMAIL ||
+        (cfg.smtp.user.includes('@') ? cfg.smtp.user.trim() : '') ||
+        cfg.fromEmail ||
+        'alerts@floop.radar'
+      ).trim();
       const info = await smtpTransporter.sendMail({
         from: `"${cfg.fromName || 'floop Daily Radar'}" <${fromAddr}>`,
         to,
