@@ -1,0 +1,30 @@
+{
+  "name": "floop-devvit",
+  "version": "1.0.0",
+  "private": true,
+  "description": "floop — Devvit Web + Mod Tool app for discovering newly created and hottest 90-day subreddits with automated daily email digests.",
+  "type": "module",
+  "scripts": {
+    "dev": "npm run build && npx devvit playtest",
+    "build:server": "esbuild src/server/index.ts --bundle --platform=node --target=node22 --format=cjs --minify --outfile=dist/server/index.cjs --sourcemap",
+    "build:client": "esbuild src/client/main.ts --bundle --platform=browser --format=esm --minify --outfile=dist/client/main.js --sourcemap && cp src/client/index.html src/client/styles.css dist/client/",
+    "build": "npm run build:server && npm run build:client",
+    "type-check": "tsc -p src/server/tsconfig.json --noEmit && tsc -p src/client/tsconfig.json --noEmit",
+    "check:config": "node --input-type=module -e \"import fs from 'node:fs'; import { parseAppConfig } from '@devvit/shared-types/schemas/config-file.v1.js'; const cfg = parseAppConfig(fs.readFileSync('devvit.json', 'utf8'), true); console.log('Valid devvit.json:', cfg.name);\"",
+    "test": "node --test tests/*.test.mjs",
+    "upload": "npm run build && npx devvit upload",
+    "launch": "npm run build && npx devvit publish"
+  },
+  "dependencies": {
+    "@devvit/web": "^0.15.4",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@devvit/shared-types": "^0.15.4",
+    "@types/express": "^5.0.1",
+    "@types/node": "^22.10.0",
+    "devvit": "^0.15.4",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.7.3"
+  }
+}

@@ -1,0 +1,123 @@
+{
+  "$schema": "https://developers.reddit.com/schema/config-file.v1.json",
+  "name": "floop-radar",
+  "post": {
+    "dir": "dist/client",
+    "entrypoints": {
+      "default": {
+        "entry": "index.html",
+        "height": "tall"
+      }
+    }
+  },
+  "server": {
+    "dir": "dist/server",
+    "entry": "index.cjs"
+  },
+  "permissions": {
+    "reddit": {
+      "enable": true,
+      "scope": "moderator"
+    },
+    "redis": true,
+    "http": {
+      "enable": true,
+      "domains": [
+        "arctic-shift.photon-reddit.com",
+        "api.resend.com",
+        "api.sendgrid.com"
+      ]
+    }
+  },
+  "triggers": {
+    "onAppInstall": "/internal/triggers/on-app-install",
+    "onAppUpgrade": "/internal/triggers/on-app-upgrade"
+  },
+  "menu": {
+    "items": [
+      {
+        "label": "Launch floop Subreddit Radar",
+        "description": "Create an interactive floop Subreddit Explorer & Daily Email Radar post in this subreddit.",
+        "forUserType": "moderator",
+        "location": ["subreddit"],
+        "endpoint": "/internal/menu/launch-floop-post",
+        "postFilter": "none"
+      },
+      {
+        "label": "Post Today's Subreddit Digest",
+        "description": "Publish today's real newly created & hottest 90-day subreddits summary thread.",
+        "forUserType": "moderator",
+        "location": ["subreddit"],
+        "endpoint": "/internal/menu/post-daily-digest",
+        "postFilter": "none"
+      },
+      {
+        "label": "Subscribe to Daily Subreddit Alerts",
+        "description": "Sign up your email for daily newly created + hottest 90-day subreddits in a category.",
+        "forUserType": "user",
+        "location": ["subreddit", "post"],
+        "endpoint": "/internal/menu/subscribe-alert",
+        "postFilter": "none"
+      },
+      {
+        "label": "floop: Sync Live Reddit Subreddits",
+        "description": "Scan Reddit feeds and refresh live subscriber counts into Redis.",
+        "forUserType": "moderator",
+        "location": ["subreddit"],
+        "endpoint": "/internal/menu/sync-now",
+        "postFilter": "none"
+      }
+    ]
+  },
+  "forms": {
+    "subscribeForm": "/internal/form/subscribe-submit"
+  },
+  "scheduler": {
+    "tasks": {
+      "daily-floop-digest": {
+        "endpoint": "/internal/scheduler/daily-digest",
+        "cron": "0 8 * * *"
+      },
+      "hourly-reddit-discovery": {
+        "endpoint": "/internal/scheduler/discovery-sync",
+        "cron": "15 * * * *"
+      }
+    }
+  },
+  "settings": {
+    "global": {
+      "resendApiKey": {
+        "type": "string",
+        "label": "Resend API Key (re_...)",
+        "helpText": "Used to send automated daily email digests over HTTPS via api.resend.com.",
+        "isSecret": true
+      },
+      "sendgridApiKey": {
+        "type": "string",
+        "label": "SendGrid API Key (Optional fallback)",
+        "helpText": "Optional SendGrid v3 API key used if Resend is not configured.",
+        "isSecret": true
+      },
+      "fromEmail": {
+        "type": "string",
+        "label": "From Sender Address",
+        "helpText": "Generic sender shown on floop emails (e.g. floop <noreply@yourdomain.com>).",
+        "defaultValue": "floop <onboarding@resend.dev>"
+      }
+    },
+    "subreddit": {
+      "autoPostDailyThread": {
+        "type": "boolean",
+        "label": "Post Daily Digest Thread in Subreddit",
+        "helpText": "If enabled, floop also posts a daily Reddit summary thread at 08:00 UTC.",
+        "defaultValue": false
+      },
+      "syncArcticShift": {
+        "type": "boolean",
+        "label": "Enrich Index from Arctic Shift",
+        "helpText": "Include arctic-shift.photon-reddit.com subreddit discovery during syncs.",
+        "defaultValue": true
+      }
+    }
+  }
+}

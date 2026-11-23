@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>floop — Live Subreddit Explorer &amp; Daily Radar</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="ambient-bg" aria-hidden="true">
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+  </div>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand-lockup">
+        <div class="brand-logo" aria-hidden="true"><span>fl</span></div>
+        <div>
+          <div class="brand-name-row">
+            <span class="brand-name">floop</span>
+            <span class="badge-live"><span class="pulse-dot"></span> DEVVIT LIVE</span>
+          </div>
+          <p class="brand-tagline">Native Reddit Subreddit Explorer &amp; 90-Day Breakout Radar</p>
+        </div>
+      </div>
+
+      <nav class="main-nav" aria-label="Primary sections">
+        <button type="button" class="nav-tab-btn active" data-view="split">Live Radar</button>
+        <button type="button" class="nav-tab-btn" data-view="new">
+          Newly Created <span class="tab-badge" id="badge-count-new">0</span>
+        </button>
+        <button type="button" class="nav-tab-btn" data-view="hot90d">
+          Hottest 90 Days <span class="tab-badge" id="badge-count-hot90d">0</span>
+        </button>
+        <button type="button" class="nav-tab-btn" data-view="automations">
+          Daily Alerts <span class="tab-badge tab-badge-green" id="badge-count-automations">0</span>
+        </button>
+      </nav>
+
+      <div class="topbar-actions">
+        <button type="button" id="theme-toggle-btn" class="btn btn-ghost btn-sm" title="Switch color theme">Theme</button>
+        <button type="button" id="live-sync-btn" class="btn btn-secondary btn-sm">
+          <span id="live-sync-label">Sync Reddit</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <section class="hero-strip">
+      <div class="hero-copy">
+        <div class="hero-eyebrow" id="hero-context-pill">Authenticated via Devvit Platform &bull; Zero External Keys</div>
+        <h1 class="hero-title">Discover <span class="accent-gradient">newly created subreddits</span> before they blow up.</h1>
+        <p class="hero-subtitle">Real Reddit creation timestamps, subscriber counts, 90-day breakout leaders, and daily email digests powered by Devvit Scheduler &amp; Redis.</p>
+
+        <div class="hero-metrics">
+          <div class="metric-card">
+            <div class="metric-label">Real Communities</div>
+            <div class="metric-value" id="stat-total-tracked">—</div>
+            <div class="metric-sub" id="stat-sync-source">Syncing index...</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Matched Launches</div>
+            <div class="metric-value" id="stat-new-matched">—</div>
+            <div class="metric-sub" id="stat-new-window-label">Window: 90D</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Top 90-Day Breakout</div>
+            <div class="metric-value metric-value-sm" id="stat-top-breakout">—</div>
+            <div class="metric-sub" id="stat-top-breakout-vel">Heat &amp; velocity leader</div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-label">Daily Alerts</div>
+            <div class="metric-value" id="stat-active-alerts">0 active</div>
+            <div class="metric-sub" id="stat-emails-sent">0 digests sent</div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="quick-alert-card">
+        <div class="quick-alert-header">
+          <span class="quick-alert-pill">DAILY EMAIL RADAR</span>
+          <span class="cron-status-pill" id="cron-status-badge">Devvit Cron 08:00 UTC</span>
+        </div>
+        <h2 class="quick-alert-title">Get Daily Category Digests</h2>
+        <p class="quick-alert-desc">Sends today's newly created subreddits in your category + hottest 90-day leaders straight to your inbox.</p>
+
+        <form id="quick-subscribe-form" class="quick-alert-form">
+          <input type="email" id="quick-email-input" class="input-control" placeholder="you@domain.com" required />
+          <select id="quick-category-select" class="select-control" aria-label="Digest Category"></select>
+          <button type="submit" class="btn btn-primary" id="quick-subscribe-btn">Activate Daily Alert</button>
+        </form>
+
+        <div class="quick-alert-footer">
+          <span>Sends immediate first digest + daily at <strong>08:00 UTC</strong></span>
+          <button type="button" class="link-btn-inline" id="quick-preview-email-btn">Preview Email HTML</button>
+        </div>
+      </aside>
+    </section>
+
+    <section class="filter-section" id="explorer-filter-section">
+      <div class="category-pills-row" id="category-filter-bar" role="tablist"></div>
+
+      <div class="controls-grid">
+        <div class="controls-left">
+          <div class="search-box-wrap">
+            <input type="search" id="search-input" class="input-control" placeholder="Filter r/name, topic, keyword..." />
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label" for="timeframe-select">Window:</label>
+            <select id="timeframe-select" class="select-control">
+              <option value="24h">Last 24 Hours</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d">Last 30 Days</option>
+              <option value="90d" selected>Last 90 Days (All New)</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label" for="min-subs-select">Min Members:</label>
+            <select id="min-subs-select" class="select-control">
+              <option value="0">Any (1+)</option>
+              <option value="10" selected>10+ subscribers</option>
+              <option value="50">50+ subscribers</option>
+              <option value="250">250+ subscribers</option>
+              <option value="1000">1,000+ subscribers</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label" for="min-velocity-select">Growth:</label>
+            <select id="min-velocity-select" class="select-control">
+              <option value="0" selected>Any velocity</option>
+              <option value="10">+10/day</option>
+              <option value="50">+50/day</option>
+              <option value="250">+250/day</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label" for="sort-select">Sort:</label>
+            <select id="sort-select" class="select-control">
+              <option value="default">Default per Column</option>
+              <option value="created_desc">Newest Launched</option>
+              <option value="heat_desc">Highest Heat Score</option>
+              <option value="subscribers_desc">Most Members</option>
+              <option value="velocity_desc">Fastest Daily Growth</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="controls-right">
+          <label class="toggle-chip">
+            <input type="checkbox" id="sfw-only-checkbox" checked />
+            <span>SFW Only</span>
+          </label>
+          <label class="toggle-chip">
+            <input type="checkbox" id="media-only-checkbox" />
+            <span>Media Allowed</span>
+          </label>
+          <button type="button" id="reset-filters-btn" class="btn btn-ghost btn-sm">Reset</button>
+        </div>
+      </div>
+
+      <form id="lookup-form" class="lookup-bar">
+        <span class="filter-label">Live Reddit Lookup:</span>
+        <input type="text" id="lookup-input" class="input-control input-sm" placeholder="Enter exact r/subreddit name to fetch live via Devvit Reddit API..." />
+        <button type="submit" id="lookup-btn" class="btn btn-secondary btn-sm">Fetch Live Subreddit</button>
+      </form>
+    </section>
+
+    <section id="view-container-split" class="split-radar-grid">
+      <div class="feed-column">
+        <div class="feed-column-header">
+          <div>
+            <div class="feed-title-row">
+              <h2>Newly Created Subreddits</h2>
+              <span class="count-pill" id="split-new-category-badge">All</span>
+            </div>
+            <p class="feed-subtitle">Real subreddits sorted by creation timestamp</p>
+          </div>
+        </div>
+        <div id="split-new-list" class="subreddit-list"></div>
+      </div>
+
+      <div class="feed-column">
+        <div class="feed-column-header">
+          <div>
+            <div class="feed-title-row">
+              <h2>Hottest in Last 90 Days</h2>
+              <span class="count-pill count-pill-hot" id="split-hot-category-badge">Last 90 Days</span>
+            </div>
+            <p class="feed-subtitle">Ranked by breakout growth velocity &amp; total members</p>
+          </div>
+        </div>
+        <div id="split-hot-list" class="subreddit-list"></div>
+      </div>
+    </section>
+
+    <section id="view-container-new" class="single-feed-container" style="display: none;">
+      <div class="single-feed-header">
+        <h2 id="full-new-heading">Newly Created Subreddits</h2>
+      </div>
+      <div id="full-new-grid" class="subreddit-grid-2col"></div>
+    </section>
+
+    <section id="view-container-hot90d" class="single-feed-container" style="display: none;">
+      <div class="single-feed-header">
+        <h2 id="full-hot-heading">Hottest New Subreddits in Last 90 Days</h2>
+      </div>
+      <div id="full-hot-grid" class="subreddit-grid-2col"></div>
+    </section>
+
+    <section id="view-container-automations" class="automations-layout" style="display: none;">
+      <div class="studio-card">
+        <div class="studio-card-header">
+          <div>
+            <h2>Daily Email Alerts (Devvit Scheduler &amp; Redis)</h2>
+            <p class="studio-sub" id="provider-summary-label">Checking delivery provider...</p>
+          </div>
+          <button type="button" id="run-daily-cron-btn" class="btn btn-primary btn-sm">Run Daily Digest Now</button>
+        </div>
+
+        <form id="studio-subscribe-form" class="studio-form-grid">
+          <div class="form-field">
+            <label for="studio-email-input">Recipient Email</label>
+            <input type="email" id="studio-email-input" class="input-control" placeholder="name@example.com" required />
+          </div>
+          <div class="form-field">
+            <label for="studio-category-select">Category Focus</label>
+            <select id="studio-category-select" class="select-control"></select>
+          </div>
+          <div class="form-field">
+            <label for="studio-min-subs">Min Subscribers</label>
+            <input type="number" id="studio-min-subs" class="input-control" value="10" min="0" />
+          </div>
+          <div class="form-field studio-form-actions">
+            <label class="toggle-chip">
+              <input type="checkbox" id="studio-send-immediate" checked />
+              <span>Send first digest immediately</span>
+            </label>
+            <button type="submit" id="studio-subscribe-btn" class="btn btn-primary">Create Alert</button>
+          </div>
+        </form>
+
+        <div id="subscriptions-list-container" class="subscriptions-list"></div>
+      </div>
+
+      <div class="studio-card">
+        <div class="studio-card-header">
+          <div>
+            <h2>Digest Outbox &amp; Rendered Emails</h2>
+            <p class="studio-sub">Configure <code>resendApiKey</code> in Reddit App Settings for direct HTTPS inbox delivery.</p>
+          </div>
+        </div>
+        <div id="outbox-list-container" class="outbox-list"></div>
+      </div>
+    </section>
+  </main>
+
+  <div class="modal-backdrop" id="email-preview-modal" aria-hidden="true">
+    <div class="modal-dialog" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <div>
+          <span class="modal-eyebrow">DAILY DIGEST EMAIL PREVIEW</span>
+          <h3 id="modal-email-subject">Daily Subreddit Digest</h3>
+          <div id="modal-email-meta" class="modal-meta"></div>
+        </div>
+        <button type="button" id="close-modal-btn" class="btn btn-ghost btn-sm">Close</button>
+      </div>
+      <div class="modal-body">
+        <iframe id="email-preview-iframe" class="email-preview-iframe" title="Digest Preview"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
