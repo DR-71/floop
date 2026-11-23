@@ -73,15 +73,12 @@ function mergeWithEnvDefaults(parsed = {}) {
       ...def.transportConfig,
       ...savedCfg,
       provider: effectiveProvider,
-      fromEmail: def.transportConfig.smtp.user || savedCfg.fromEmail || def.transportConfig.fromEmail,
+      fromName: process.env.FLOOP_FROM_NAME || savedCfg.fromName || def.transportConfig.fromName,
+      fromEmail: process.env.SMTP_FROM || process.env.FLOOP_FROM_EMAIL || def.transportConfig.smtp.user || savedCfg.fromEmail || def.transportConfig.fromEmail,
       smtp: {
         ...def.transportConfig.smtp,
         ...(savedCfg.smtp || {}),
         host: process.env.SMTP_HOST || savedCfg.smtp?.host || def.transportConfig.smtp.host,
-        port: Number(process.env.SMTP_PORT || savedCfg.smtp?.port || def.transportConfig.smtp.port || 587),
-        user: savedCfg.smtp?.user || def.transportConfig.smtp.user,
-        pass: savedCfg.smtp?.pass || def.transportConfig.smtp.pass
-   ocess.env.SMTP_HOST || savedCfg.smtp?.host || def.transportConfig.smtp.host,
         port: Number(process.env.SMTP_PORT || savedCfg.smtp?.port || def.transportConfig.smtp.port || 587),
         user: savedCfg.smtp?.user || def.transportConfig.smtp.user,
         pass: savedCfg.smtp?.pass || def.transportConfig.smtp.pass,
