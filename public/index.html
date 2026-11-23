@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>floop — Live Newly Created Subreddit Explorer &amp; 90-Day Breakout Radar</title>
+  <meta name="description" content="Explore newly created subreddits live by category, growth velocity, and filters, track the hottest breakout communities in the last 90 days, and automate daily email digests." />
+  <link rel="stylesheet" href="/index.css" />
+</head>
+<body>
+  <!-- Sticky Header -->
+  <header class="site-header">
+    <div class="header-inner">
+      <a href="#" class="brand-group" id="brand-home-link">
+        <span class="brand-mark">floop</span>
+        <div class="brand-title-wrap">
+          <span class="brand-title">Subreddit Discovery &amp; 90-Day Velocity Radar</span>
+          <span class="brand-subtitle">Live Reddit Index &bull; Automated Daily Email Digests</span>
+        </div>
+      </a>
+
+      <nav class="nav-tabs" aria-label="Primary View Mode">
+        <button type="button" class="nav-tab-btn active" id="nav-tab-split" data-view="split">
+          Radar Split View
+          <span class="tab-count-badge" id="badge-count-split">Live + 90d</span>
+        </button>
+        <button type="button" class="nav-tab-btn" id="nav-tab-new" data-view="new">
+          Newly Created Live
+          <span class="tab-count-badge" id="badge-count-new">0</span>
+        </button>
+        <button type="button" class="nav-tab-btn" id="nav-tab-hot90d" data-view="hot90d">
+          Hottest Last 90 Days
+          <span class="tab-count-badge" id="badge-count-hot90d">0</span>
+        </button>
+        <button type="button" class="nav-tab-btn" id="nav-tab-automations" data-view="automations">
+          Daily Email Automations
+          <span class="tab-count-badge" id="badge-count-automations">0 active</span>
+        </button>
+      </nav>
+
+      <div class="header-actions">
+        <button type="button" class="btn btn-sm" id="live-sync-btn" title="Pull latest newly created subreddits from Reddit / Arctic Shift index">
+          <span id="live-sync-label">Sync Live Index</span>
+        </button>
+        <button type="button" class="btn btn-sm" id="theme-toggle-btn" aria-label="Toggle color theme">
+          Theme
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Application Content -->
+  <main class="main-container">
+    <!-- Hero Telemetry & Quick Daily Email Alert Signup -->
+    <section class="hero-telemetry" aria-label="Telemetry Summary and Daily Email Alert Signup">
+      <div class="intro-panel">
+        <div>
+          <h1 class="intro-headline">Explore Newly Created Subreddits &amp; 90-Day Breakouts</h1>
+          <p class="intro-copy">
+            Filter newly launched Reddit communities by category, subscriber thresholds, and daily velocity. Subscribe any category to receive an automated daily email digest containing newly created subreddits plus the hottest 90-day breakouts.
+          </p>
+        </div>
+
+        <div class="telemetry-metrics">
+          <div class="metric-item">
+            <span class="metric-label">Communities Indexed</span>
+            <span class="metric-value" id="stat-total-tracked">—</span>
+            <span class="metric-sub">Across 12 categories (incl. 18+)</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Newly Created Matched</span>
+            <span class="metric-value" id="stat-new-matched">—</span>
+            <span class="metric-sub" id="stat-new-window-label">Active window</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">#1 90-Day Breakout</span>
+            <span class="metric-value" id="stat-top-breakout">—</span>
+            <span class="metric-sub" id="stat-top-breakout-vel">Velocity leader</span>
+          </div>
+          <div class="metric-item">
+            <span class="metric-label">Daily Email Cron</span>
+            <span class="metric-value" id="stat-active-alerts">0</span>
+            <span class="metric-sub" id="stat-emails-sent">0 digests delivered</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Daily Email Alert Signup Box -->
+      <aside class="quick-alert-panel" aria-label="Quick Daily Email Alert Signup">
+        <div class="quick-alert-header">
+          <div>
+            <h2 class="quick-alert-title">Daily Category Email Alerts (24h Cron)</h2>
+            <p class="quick-alert-desc">
+              Get an automated email once a day with <strong>newly created subreddits</strong> in your category + the <strong>hottest new subreddits in the last 90 days</strong>.
+            </p>
+          </div>
+          <span class="cron-status-tag" id="cron-live-pill">
+            <span class="status-dot"></span>
+            CRON ACTIVE
+          </span>
+        </div>
+
+        <form class="quick-alert-form" id="quick-subscribe-form">
+          <input
+            type="email"
+            id="quick-email-input"
+            class="input-control"
+            placeholder="Enter your email (e.g. alex@domain.com)"
+            required
+            aria-label="Email address for daily subreddit alerts"
+          />
+          <select id="quick-category-select" class="select-control" aria-label="Category for daily email alert">
+            <option value="All">All Categories</option>
+          </select>
+          <button type="submit" class="btn btn-primary" id="quick-subscribe-btn">
+            Activate Daily Alert
+          </button>
+        </form>
+
+        <div class="quick-alert-footer">
+          <span>Sends immediate first digest on signup + daily at <strong id="quick-schedule-label">08:00 UTC</strong></span>
+          <div style="display: flex; gap: 12px;">
+            <button type="button" class="link-btn-inline" id="quick-preview-email-btn">Preview Daily Email HTML</button>
+            <button type="button" class="link-btn-inline" id="quick-open-studio-btn">Configure SMTP / Resend &amp; Outbox &rarr;</button>
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <!-- Category Strip & Multi-Filter Controls (Shown in Explorer views) -->
+    <section class="filter-section" id="explorer-filter-section" aria-label="Category and Discovery Filters">
+      <div class="category-pills-row" id="category-filter-bar" role="tablist" aria-label="Subreddit Categories">
+        <!-- Populated dynamically with live counts -->
+      </div>
+
+      <div class="controls-grid">
+        <div class="controls-left">
+          <div class="search-box-wrap">
+            <span class="search-icon">&#8981;</span>
+            <input
+              type="search"
+              id="search-input"
+              class="input-control"
+              placeholder="Search r/name, topic, keyword, or tag..."
+              aria-label="Search subreddits"
+            />
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label" for="timeframe-select">New Window:</label>
+            <select id="timeframe-select" class="select-control">
+              <option value="24h">Last 24 Hours</option>
+              <option value="7d">Last 7 Days</option>
+              <option value="30d" selected>Last 30 Days</option>
+              <option value="90d">Last 90 Days</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label" for="min-subs-select">Min Members:</label>
+            <select id="min-subs-select" class="select-control">
+              <option value="0">Any (1+)</option>
+              <option value="10" selected>10+ subscribers</option>
+              <option value="50">50+ subscribers</option>
+              <option value="100">100+ subscribers</option>
+              <option value="500">500+ subscribers</option>
+              <option value="1000">1,000+ subscribers</option>
+              <option value="5000">5,000+ subscribers</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label" for="min-velocity-select">Velocity:</label>
+            <select id="min-velocity-select" class="select-control">
+              <option value="0" selected>Any growth rate</option>
+              <option value="5">5+ subs/day</option>
+              <option value="25">25+ subs/day</option>
+              <option value="100">100+ subs/day</option>
+              <option value="500">500+ subs/day</option>
+            </select>
+          </div>
+
+          <div class="filter-group">
+            <label class="filter-label" for="sort-select">Sort:</label>
+            <select id="sort-select" class="select-control">
+              <option value="default" selected>Auto (Newest / Heat)</option>
+              <option value="created_desc">Newest Created First</option>
+              <option value="heat_desc">Hottest 90-Day Score</option>
+              <option value="velocity_desc">Fastest Growing (Subs/Day)</option>
+              <option value="subscribers_desc">Most Subscribers</option>
+              <option value="activity_desc">Most Active (Comments + Posts)</option>
+            </select>
+          </div>
+
+          <label class="checkbox-pill" for="sfw-only-checkbox">
+            <input type="checkbox" id="sfw-only-checkbox" checked />
+            SFW Only
+          </label>
+
+          <label class="checkbox-pill" for="media-only-checkbox">
+            <input type="checkbox" id="media-only-checkbox" />
+            Media Enabled
+          </label>
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button type="button" class="btn btn-sm" id="reset-filters-btn">Reset Filters</button>
+          <button type="button" class="btn btn-sm btn-primary" id="subscribe-current-filter-btn">
+            Alert Me Daily for This Category
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 1: RADAR SPLIT VIEW (Newly Created Live + Hottest Last 90 Days side-by-side) -->
+    <section id="view-container-split" class="radar-split-grid" aria-label="Split View: Newly Created and Hottest 90-Day Subreddits">
+      <!-- Left Column: Newly Created Subreddits Live -->
+      <div class="feed-column">
+        <div class="feed-column-header">
+          <div class="feed-column-title-group">
+            <h2 class="feed-column-title">
+              Newly Created Subreddits
+              <span class="badge badge-new" id="split-new-category-badge">All Categories</span>
+            </h2>
+            <p class="feed-column-subtitle" id="split-new-subtitle">
+              Sorted by live creation time &bull; Showing newest launches
+            </p>
+          </div>
+          <button type="button" class="btn btn-sm" id="expand-new-view-btn">Full View &rarr;</button>
+        </div>
+        <div class="feed-list" id="split-new-list"></div>
+      </div>
+
+      <!-- Right Column: Hottest New Subreddits in Last 90 Days -->
+      <div class="feed-column">
+        <div class="feed-column-header">
+          <div class="feed-column-title-group">
+            <h2 class="feed-column-title">
+              Hottest New Subreddits (Last 90 Days)
+              <span class="badge badge-heat" id="split-hot-category-badge">90d Velocity</span>
+            </h2>
+            <p class="feed-column-subtitle" id="split-hot-subtitle">
+              Ranked by 90-day Floop Heat Score, daily subscriber growth &amp; engagement
+            </p>
+          </div>
+          <button type="button" class="btn btn-sm" id="expand-hot-view-btn">Full Leaderboard &rarr;</button>
+        </div>
+        <div class="feed-list" id="split-hot-list"></div>
+      </div>
+    </section>
+
+    <!-- VIEW 2: FULL NEWLY CREATED SUBREDDITS EXPLORER -->
+    <section id="view-container-new" style="display: none;" aria-label="Newly Created Subreddits Explorer">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <h2 style="margin: 0; font-family: var(--font-display); font-size: 18px; font-weight: 800;" id="full-new-heading">
+            Newly Created Subreddits Live Feed
+          </h2>
+          <p style="margin: 2px 0 0 0; font-size: 12.5px; color: var(--text-secondary);" id="full-new-subheading">
+            Exploring newly launched communities matching your category and filters
+          </p>
+        </div>
+      </div>
+      <div class="single-column-grid" id="full-new-grid"></div>
+    </section>
+
+    <!-- VIEW 3: FULL HOTTEST NEW SUBREDDITS IN LAST 90 DAYS -->
+    <section id="view-container-hot90d" style="display: none;" aria-label="Hottest New Subreddits in Last 90 Days Leaderboard">
+      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px;">
+        <div>
+          <h2 style="margin: 0; font-family: var(--font-display); font-size: 18px; font-weight: 800;" id="full-hot-heading">
+            Hottest New Subreddits in the Last 90 Days
+          </h2>
+          <p style="margin: 2px 0 0 0; font-size: 12.5px; color: var(--text-secondary);" id="full-hot-subheading">
+            Breakout communities launched within the past 90 days ranked by velocity and subscriber traction
+          </p>
+        </div>
+      </div>
+      <div class="single-column-grid" id="full-hot-grid"></div>
+    </section>
+
+    <!-- VIEW 4: DAILY EMAIL ALERTS & AUTOMATIONS STUDIO -->
+    <section id="view-container-automations" style="display: none;" aria-label="Daily Email Alerts and Automation Engine">
+      <div class="automations-layout">
+        <!-- Left Column: Create Alert Subscription + Configure Email Delivery Provider -->
+        <div>
+          <!-- Create New Daily Email Subscription Card -->
+          <div class="panel-card">
+            <h2 class="panel-card-title">Create Daily Email Alert Subscription</h2>
+            <p class="panel-card-subtitle">
+              Automatically dispatches a daily digest once every 24 hours containing newly created subreddits in your category + the hottest new subreddits from the last 90 days.
+            </p>
+
+            <form class="form-stack" id="studio-subscribe-form">
+              <div class="form-field">
+                <label for="studio-email-input">Recipient Email Address</label>
+                <input
+                  type="email"
+                  id="studio-email-input"
+                  class="input-control"
+                  placeholder="you@domain.com"
+                  required
+                />
+              </div>
+
+              <div class="form-field">
+                <label for="studio-category-select">Category to Track</label>
+                <select id="studio-category-select" class="select-control">
+                  <option value="All">All Categories</option>
+                </select>
+              </div>
+
+              <div class="form-row-2">
+                <div class="form-field">
+                  <label for="studio-delivery-time">Daily Delivery Time (UTC)</label>
+                  <input type="time" id="studio-delivery-time" class="input-control" value="08:00" required />
+                </div>
+                <div class="form-field">
+                  <label for="studio-min-subs">Min Subscribers Filter</label>
+                  <select id="studio-min-subs" class="select-control">
+                    <option value="0">Any (1+)</option>
+                    <option value="10" selected>10+ subscribers</option>
+                    <option value="50">50+ subscribers</option>
+                    <option value="100">100+ subscribers</option>
+                    <option value="500">500+ subscribers</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-row-2">
+                <div class="form-field">
+                  <label for="studio-new-limit">Newly Created Count</label>
+                  <select id="studio-new-limit" class="select-control">
+                    <option value="3">Top 3 New Subreddits</option>
+                    <option value="5" selected>Top 5 New Subreddits</option>
+                    <option value="8">Top 8 New Subreddits</option>
+                    <option value="10">Top 10 New Subreddits</option>
+                  </select>
+                </div>
+                <div class="form-field">
+                  <label for="studio-hot-limit">Hottest 90-Day Count</label>
+                  <select id="studio-hot-limit" class="select-control">
+                    <option value="3">Top 3 Hottest (90d)</option>
+                    <option value="5" selected>Top 5 Hottest (90d)</option>
+                    <option value="8">Top 8 Hottest (90d)</option>
+                    <option value="10">Top 10 Hottest (90d)</option>
+                  </select>
+                </div>
+              </div>
+
+              <label class="checkbox-pill" for="studio-send-immediate">
+                <input type="checkbox" id="studio-send-immediate" checked />
+                Send immediate welcome &amp; first digest email right now upon signup
+              </label>
+
+              <div style="display: flex; gap: 8px; padding-top: 4px;">
+                <button type="submit" class="btn btn-primary" id="studio-subscribe-btn" style="flex: 1;">
+                  Save &amp; Activate Daily Email Alert
+                </button>
+                <button type="button" class="btn" id="studio-preview-btn">
+                  Preview HTML
+                </button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Email Transport & Provider Settings Card -->
+          <div class="panel-card">
+            <h2 class="panel-card-title">Email Delivery Provider &amp; Webhook Config</h2>
+            <p class="panel-card-subtitle">
+              Out of the box, floop uses an auto-provisioned live Nodemailer SMTP mailbox (with webmail links &amp; local outbox viewer). To deliver directly to your personal Gmail/Outlook inbox, configure your SMTP or API key below.
+            </p>
+
+            <form class="form-stack" id="transport-config-form">
+              <div class="form-field">
+                <label for="provider-select">Active Email Transport Provider</label>
+                <select id="provider-select" class="select-control">
+                  <option value="ethereal">Live Nodemailer Sandbox SMTP (Zero-Config + Webmail Preview)</option>
+                  <option value="smtp">Direct Gmail / Custom SMTP Server (Port 587 / 465)</option>
+                  <option value="resend">Resend Email API (api.resend.com)</option>
+                  <option value="sendgrid">SendGrid v3 Mail API</option>
+                </select>
+              </div>
+
+              <!-- Custom SMTP Fields -->
+              <div id="provider-fields-smtp" style="display: none;" class="form-stack">
+                <div class="form-row-2">
+                  <div class="form-field">
+                    <label for="smtp-host-input">SMTP Host</label>
+                    <input type="text" id="smtp-host-input" class="input-control" placeholder="smtp.gmail.com" value="smtp.gmail.com" />
+                  </div>
+                  <div class="form-field">
+                    <label for="smtp-port-input">SMTP Port</label>
+                    <input type="number" id="smtp-port-input" class="input-control" placeholder="587" value="587" />
+                  </div>
+                </div>
+                <div class="form-field">
+                  <label for="smtp-user-input">SMTP Username / Gmail Address</label>
+                  <input type="text" id="smtp-user-input" class="input-control" placeholder="yourname@gmail.com" />
+                </div>
+                <div class="form-field">
+                  <label for="smtp-pass-input">SMTP Password / Gmail 16-Char App Password</label>
+                  <input type="password" id="smtp-pass-input" class="input-control" placeholder="xxxx xxxx xxxx xxxx" />
+                </div>
+              </div>
+
+              <!-- Resend Fields -->
+              <div id="provider-fields-resend" style="display: none;" class="form-stack">
+                <div class="form-field">
+                  <label for="resend-key-input">Resend API Key</label>
+                  <input type="password" id="resend-key-input" class="input-control" placeholder="re_123456789..." />
+                </div>
+                <div class="form-field">
+                  <label for="resend-from-input">Verified Sender Address</label>
+                  <input type="email" id="resend-from-input" class="input-control" placeholder="onboarding@resend.dev" value="onboarding@resend.dev" />
+                </div>
+              </div>
+
+              <!-- SendGrid Fields -->
+              <div id="provider-fields-sendgrid" style="display: none;" class="form-stack">
+                <div class="form-field">
+                  <label for="sendgrid-key-input">SendGrid API Key</label>
+                  <input type="password" id="sendgrid-key-input" class="input-control" placeholder="SG.xxxx..." />
+                </div>
+                <div class="form-field">
+                  <label for="sendgrid-from-input">Verified Sender Email</label>
+                  <input type="email" id="sendgrid-from-input" class="input-control" placeholder="alerts@yourdomain.com" />
+                </div>
+              </div>
+
+              <div class="form-field">
+                <label for="webhook-url-input">Optional Automation Webhook URL (Zapier / Make / n8n / Custom)</label>
+                <input type="url" id="webhook-url-input" class="input-control" placeholder="https://hook.us1.make.com/..." />
+              </div>
+
+              <button type="submit" class="btn" id="save-transport-btn">
+                Save Delivery Configuration
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Right Column: Active Subscriptions, Cron Execution Controls & Sent Email Outbox -->
+        <div>
+          <!-- Active Daily Subscriptions & Cron Runner -->
+          <div class="panel-card">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;">
+              <div>
+                <h2 class="panel-card-title">Active Daily Email Alert Subscriptions</h2>
+                <p class="panel-card-subtitle" style="margin-bottom: 0;" id="cron-scheduler-meta">
+                  Automated node-cron scheduler checks daily delivery times every 60s
+                </p>
+              </div>
+              <button type="button" class="btn btn-emerald" id="run-cron-now-btn">
+                Run Daily Cron Batch Now (Test All)
+              </button>
+            </div>
+
+            <div class="subscription-list" id="subscriptions-list-container">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- Sent Digest Outbox & Live Email Viewer -->
+          <div class="panel-card">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px;">
+              <div>
+                <h2 class="panel-card-title">Sent Email Digest Outbox &amp; Delivery Logs</h2>
+                <p class="panel-card-subtitle" style="margin-bottom: 0;">
+                  Every automated or manual email digest is logged below with its SMTP Message-ID, webmail link, and full rendered HTML newsletter.
+                </p>
+              </div>
+            </div>
+
+            <div class="outbox-list" id="outbox-list-container">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Email HTML Preview Modal -->
+  <div class="modal-backdrop" id="email-preview-modal" role="dialog" aria-modal="true" aria-labelledby="modal-email-subject">
+    <div class="modal-window">
+      <div class="modal-header">
+        <div>
+          <h3 style="margin: 0; font-family: var(--font-display); font-size: 15px; font-weight: 800;" id="modal-email-subject">
+            Daily Subreddit Digest Preview
+          </h3>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-top: 2px;" id="modal-email-meta"></div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <a href="#" target="_blank" rel="noopener" class="btn btn-sm btn-primary" id="modal-ethereal-link" style="display: none;">
+            Open Live Webmail (Ethereal SMTP) &nearr;
+          </a>
+          <button type="button" class="btn btn-sm" id="close-modal-btn">Close</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <iframe id="email-preview-iframe" class="email-preview-iframe" title="Rendered Daily Digest Email"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div class="toast-container" id="toast-container" aria-live="polite"></div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
