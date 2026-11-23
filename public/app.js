@@ -301,6 +301,15 @@ function renderExplorerFeeds() {
     : emptyStateHtml;
 }
 
+function getSavedTransportOverride() {
+  try {
+    const raw = localStorage.getItem('floop_saved_transport');
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+
 function renderAutomationsStudio() {
   const auto = state.automations;
   const activeCount = (auto.subscriptions || []).filter(s => s.status === 'active').length;
@@ -308,12 +317,24 @@ function renderAutomationsStudio() {
 
   document.getElementById('badge-count-automations').textContent = `${activeCount} active`;
   document.getElementById('stat-active-alerts').textContent = `${activeCount} active`;
-  document.getElementById('stat-emails-sent').textContent = `${sentCount} digests delivered`;
+  document.getElementById('stat-emails-sent').textContent = `${sentCount} digests generated`;
+
+  const cronPill = document.getElementById('cron-live-pill');
+  if (cronPill) {
+    if (auto.realInboxActive) {
+      cronPill.innerHTML = `<span class="status-dot" style="background:#10b981;box-shadow:0 0 8px #10b981;"></span> REAL INBOX ACTIVE (${escapeHtml((auto.transportConfig?.provider || 'SMTP').toUpperCase())})`;
+    } else {
+      cronPill.innerHTML = `<span class="status-dot"></span> SANDBOX SMTP (WEBMAIL)`;
+      cronPill.title = 'Currently using Ethereal test webmail. Configure Gmail SMTP or Resend in the Automations tab to deliver to your external inbox.';
+    }
+  }
 
   const metaEl = document.getElementById('cron-scheduler-meta');
   if (metaEl) {
-    const ethUser = auto.etherealAccount?.user ? ` • Live SMTP: ${auto.etherealAccount.user}` : '';
-    metaEl.textContent = `node-cron active (runs daily schedule per subscriber)${ethUser}`;
+    const modeNote = auto.realInboxActive
+      ? `Real Inbox Provider Active (${(auto.transportConfig?.provider || '').toUpperCase()})`
+      : `Sandbox Mode (Ethereal Test Webmail${auto.etherealAccount?.user ? ': ' + auto.etherealAccount.user : ''}) — Configure SMTP/Resend on the left for real external inbox delivery`;
+    metaEl.textContent = modeNote;
   }
 
   // Render subscriptions list
@@ -380,13 +401,17 @@ function renderAutomationsStudio() {
       const sentTime = new Date(msg.sentAt).toLocaleString();
       const newNames = (msg.newlyCreatedSample || []).map(s => `r/${s.display_name}`).join(', ');
       const hotNames = (msg.hottest90dSample || []).map(s => `r/${s.display_name}`).join(', ');
+      const isRealInbox = msg.deliveryMode === 'real_inbox';
+      const statusBadge = isRealInbox
+        ? `<span class="badge badge-new" style="background:hsla(156,72%,44%,0.2);color:#6ee7b7;">DELIVERED TO REAL INBOX</span>`
+        : `<span class="badge badge-heat">CAPTURED IN SANDBOX WEBMAIL</span>`;
 
       return `
         <div class="outbox-item">
           <div class="outbox-item-top">
             <div>
               <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 3px;">
-                <span class="badge badge-new">DELIVERED</span>
+                ${statusBadge}
                 <strong style="font-size: 13.5px;">${escapeHtml(msg.subject)}</strong>
               </div>
               <div style="font-size: 12px; color: var(--text-secondary);">
@@ -400,17 +425,18 @@ function renderAutomationsStudio() {
               <button type="button" class="btn btn-sm btn-primary" onclick="window.floopOpenOutboxEmail('${escapeHtml(msg.id)}')">
                 View Rendered Email
               </button>
-              ${msg.previewUrl ? `<a href="${escapeHtml(msg.previewUrl)}" target="_blank" rel="noopener" class="btn btn-sm">Webmail &nearr;</a>` : ''}
+              ${msg.previewUrl ? `<a href="${escapeHtml(msg.previewUrl)}" target="_blank" rel="noopener" class="btn btn-sm">Open Webmail &nearr;</a>` : ''}
             </div>
           </div>
 
           <div style="font-size: 12px; color: var(--text-secondary); background: var(--bg-surface); padding: 8px 12px; border-radius: var(--radius-sm); border: 1px solid var(--border-subtle);">
-            <div><strong>Newly Created Included (${msg.newlyCreatedCount}):</strong> ${escapeHtml(newNames || 'None')}</div>
-            <div style="margin-top: 2px;"><strong>Hottest Last 90 Days Included (${msg.hottest90dCount}):</strong> ${escapeHtml(hotNames || 'None')}</div>
+            <div><strong>Newly Created Included (${msg.newlyCreatedCount}):</strong> ${escapeHtml(newNames || 'Top matches')}</div>
+            <div style="margin-top: 2px;"><strong>Hottest Last 90 Days Included (${msg.hottest90dCount}):</strong> ${escapeHtml(hotNames || 'Top matches')}</div>
             <div style="margin-top: 4px; font-family: var(--font-mono); font-size: 11px; color: var(--text-muted);">
               Transport: ${escapeHtml(msg.providerUsed)} &bull; Message-ID: ${escapeHtml(msg.messageId || 'N/A')}
               ${msg.webhookStatus ? ` &bull; Webhook: ${escapeHtml(msg.webhookStatus)}` : ''}
             </div>
+            ${msg.providerNote ? `<div style="margin-top: 4px; font-size: 11.5px; color: ${msg.primaryError ? 'var(--danger)' : 'var(--accent-amber-text)'};">${escapeHtml(msg.providerNote)}</div>` : ''}
           </div>
         </div>
       `;
@@ -718,16 +744,27 @@ window.floopSendSubscriptionNow = async function (subId) {
     const res = await fetch(`${API_BASE}/api/subscriptions/${encodeURIComponent(subId)}/send-now`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ reason: 'Manual 1-Click Dispatch from Floop Studio' })
+      body: JSON.stringify({
+        reason: 'Manual 1-Click Dispatch from Floop Studio',
+        transportConfig: getSavedTransportOverride()
+      })
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'Failed to send digest');
     await fetchAutomationsStatus();
+    const entry = data.outboxEntry;
+    const isReal = entry.deliveryMode === 'real_inbox';
+    openEmailModal({
+      subject: entry.subject,
+      meta: isReal
+        ? `DELIVERED TO REAL INBOX (${entry.to}) via ${entry.providerUsed}`
+        : `SANDBOX PREVIEW (${entry.to}) • Captured in Ethereal Test Webmail — Configure Gmail SMTP or Resend in Automations tab for real external inbox delivery`,
+      html: entry.html,
+      previewUrl: entry.previewUrl
+    });
     showToast(
-      'Daily Digest Dispatched!',
-      `Sent "${data.outboxEntry.subject}" to ${data.outboxEntry.to}.`,
-      'View Sent Email',
-      () => window.floopOpenOutboxEmail(data.outboxEntry.id)
+      isReal ? 'Delivered to Real Email Inbox!' : 'Digest Generated in Sandbox Webmail',
+      entry.providerNote || `Sent "${entry.subject}" to ${entry.to}.`
     );
   } catch (err) {
     const sub = (state.automations.subscriptions || []).find(s => s.id === subId);
@@ -741,14 +778,20 @@ window.floopSendSubscriptionNow = async function (subId) {
         html: built.html,
         newlyCreatedCount: built.newlyCreatedCount,
         hottest90dCount: built.hottest90dCount,
-        providerUsed: 'Floop Live SMTP Transport',
+        providerUsed: 'Floop In-App Preview Sandbox',
+        deliveryMode: 'sandbox_ethereal',
         sentAt: new Date().toISOString()
       };
       state.automations.outbox.unshift(entry);
       sub.sendCount = (sub.sendCount || 0) + 1;
       sub.lastSentAt = entry.sentAt;
       renderAutomationsStudio();
-      showToast('Daily Digest Dispatched!', `Sent "${entry.subject}" to ${entry.to}.`, 'View Sent Email', () => window.floopOpenOutboxEmail(entry.id));
+      openEmailModal({
+        subject: entry.subject,
+        meta: `To: ${entry.to} • Category: ${entry.category} • In-App Preview`,
+        html: entry.html,
+        previewUrl: ''
+      });
     }
   }
 };
@@ -785,12 +828,16 @@ async function handleCreateSubscription(payload, btnEl) {
       btnEl.disabled = true;
       btnEl.textContent = 'Activating & Sending...';
     }
+    const enrichedPayload = {
+      ...payload,
+      transportConfig: getSavedTransportOverride()
+    };
     let data;
     try {
       const res = await fetch(`${API_BASE}/api/subscriptions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(enrichedPayload)
       });
       data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Could not create subscription');
@@ -818,7 +865,8 @@ async function handleCreateSubscription(payload, btnEl) {
         html: built.html,
         newlyCreatedCount: built.newlyCreatedCount,
         hottest90dCount: built.hottest90dCount,
-        providerUsed: 'Floop Automated SMTP Dispatcher',
+        providerUsed: 'Floop Sandbox Preview (Configure SMTP/Resend for Real Inbox)',
+        deliveryMode: 'sandbox_ethereal',
         sentAt: sub.lastSentAt
       };
       state.automations.subscriptions.unshift(sub);
@@ -828,19 +876,36 @@ async function handleCreateSubscription(payload, btnEl) {
     }
 
     if (data.initialDelivery) {
-      showToast(
-        'Daily Email Alert Activated & First Digest Sent!',
-        `Scheduled daily at ${data.subscription.deliveryTime} UTC for ${data.subscription.email} (${data.subscription.category}). Your first digest was just delivered!`,
-        'Open Sent Email Digest',
-        () => {
-          openEmailModal({
-            subject: data.initialDelivery.subject,
-            meta: `To: ${data.initialDelivery.to} • Category: ${data.initialDelivery.category} • Transport: ${data.initialDelivery.providerUsed}`,
-            html: data.initialDelivery.html,
-            previewUrl: data.initialDelivery.previewUrl
-          });
-        }
-      );
+      const entry = data.initialDelivery;
+      const isReal = entry.deliveryMode === 'real_inbox';
+      // Automatically open the rendered Welcome & First Daily Digest modal so the user sees it immediately
+      openEmailModal({
+        subject: entry.subject,
+        meta: isReal
+          ? `DELIVERED TO REAL INBOX: ${entry.to} • Transport: ${entry.providerUsed}`
+          : `SANDBOX WEBMAIL PREVIEW (${entry.to}) — Not sent to external Gmail/Outlook yet. Connect Gmail SMTP or Resend in the Automations tab for real inbox delivery.`,
+        html: entry.html,
+        previewUrl: entry.previewUrl
+      });
+
+      if (isReal) {
+        showToast(
+          'Delivered to Your Real Email Inbox!',
+          `Your first daily digest for ${data.subscription.category} was sent directly to ${entry.to} via ${entry.providerUsed}.`
+        );
+      } else {
+        showToast(
+          'First Digest Generated (Sandbox Webmail Mode)',
+          entry.primaryError
+            ? `Real provider error: ${entry.primaryError}. Captured in Sandbox Webmail instead.`
+            : `Currently in Sandbox Test Mode (Ethereal SMTP). Connect your Gmail App Password or Resend API Key to deliver directly to ${entry.to}!`,
+          'Connect Real Inbox Provider →',
+          () => {
+            closeEmailModal();
+            switchView('automations');
+          }
+        );
+      }
     } else {
       showToast(
         'Daily Email Alert Scheduled!',
@@ -917,7 +982,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const label = document.getElementById('live-sync-label');
     label.textContent = 'Syncing...';
     try {
-      const res = await fetch('/api/subreddits/sync', { method: 'POST' });
+      const res = await fetch(`${API_BASE}/api/subreddits/sync`, { method: 'POST' });
       const info = await res.json();
       await fetchRadarData();
       showToast('Live Reddit Index Synced', `Indexed ${info.total} communities across 12 categories.`);
@@ -1063,6 +1128,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('transport-config-form').addEventListener('submit', async (e) => {
     e.preventDefault();
+    const btn = document.getElementById('save-transport-btn');
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.textContent = 'Saving & Verifying Connection...';
+
     const provider = document.getElementById('provider-select').value;
     const payload = {
       provider,
@@ -1083,7 +1153,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     };
     try {
-      const res = await fetch('/api/automations/transport', {
+      try {
+        localStorage.setItem('floop_saved_transport', JSON.stringify(payload));
+      } catch (lsErr) {}
+
+      const res = await fetch(`${API_BASE}/api/automations/transport`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -1091,9 +1165,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const updated = await res.json();
       state.automations = updated;
       renderAutomationsStudio();
-      showToast('Email Delivery Configuration Saved', `Active transport set to: ${provider.toUpperCase()}`);
+
+      const verifyRes = await fetch(`${API_BASE}/api/automations/test-transport`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transportConfig: payload })
+      });
+      const verifyData = await verifyRes.json();
+      if (!verifyRes.ok || !verifyData.ok) {
+        throw new Error(verifyData.error || 'Provider verification failed');
+      }
+      showToast('Delivery Provider Verified & Saved!', verifyData.message);
     } catch (err) {
-      showToast('Config Error', err.message);
+      showToast('Provider Verification Error', err.message);
+    } finally {
+      btn.disabled = false;
+      btn.textContent = origText;
     }
   });
 
@@ -1103,7 +1190,11 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.disabled = true;
     btn.textContent = 'Running Daily Batch...';
     try {
-      const res = await fetch('/api/automations/run-cron', { method: 'POST' });
+      const res = await fetch(`${API_BASE}/api/automations/run-cron`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ transportConfig: getSavedTransportOverride() })
+      });
       const result = await res.json();
       await fetchAutomationsStatus();
       showToast(
@@ -1124,7 +1215,16 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.target.id === 'email-preview-modal') closeEmailModal();
   });
 
-  // Initial load
+  // Initial load: restore saved transport config if present
+  const savedTransport = getSavedTransportOverride();
+  if (savedTransport) {
+    fetch(`${API_BASE}/api/automations/transport`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(savedTransport)
+    }).then(() => fetchAutomationsStatus()).catch(() => {});
+  }
+
   fetchRadarData();
   fetchAutomationsStatus();
 });

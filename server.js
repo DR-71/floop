@@ -14,6 +14,7 @@ const {
   sendDigestForSubscription,
   runDailyCronTick,
   updateTransportConfig,
+  testTransportConnection,
   toggleSubscriptionStatus,
   deleteSubscription
 } = require('./src/automationEngine');
@@ -152,7 +153,8 @@ app.post('/api/subscriptions/:id/send-now', async (req, res) => {
   try {
     const result = await sendDigestForSubscription(
       req.params.id,
-      req.body?.reason || 'Manual 1-Click Test Dispatch'
+      req.body?.reason || 'Manual 1-Click Test Dispatch',
+      req.body?.transportConfig || null
     );
     res.json(result);
   } catch (err) {
@@ -183,6 +185,9 @@ app.delete('/api/subscriptions/:id', (req, res) => {
 // 9. Force a Daily Cron Job Execution across all active subscriptions
 app.post('/api/automations/run-cron', async (req, res) => {
   try {
+    if (req.body?.transportConfig) {
+      updateTransportConfig(req.body.transportConfig);
+    }
     const result = await runDailyCronTick({
       forceAll: true,
       reason: 'Triggered Daily Cron Batch Run (All Active Subscriptions)'
@@ -254,6 +259,16 @@ app.put('/api/automations/transport', (req, res) => {
     res.json(status);
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// 11b. Verify Email Transport Connection (SMTP / Resend / SendGrid / Ethereal)
+app.post('/api/automations/test-transport', async (req, res) => {
+  try {
+    const result = await testTransportConnection(req.body);
+    res.json(result);
+  } catch (err) {
+    res.status(400).json({ ok: false, error: err.message });
   }
 });
 

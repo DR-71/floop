@@ -28,7 +28,7 @@ function defaultState() {
         ? 'smtp'
         : 'ethereal',
       fromName: 'floop Daily Radar',
-      fromEmail: 'alerts@floop.radar',
+      fromEmail: process.env.SMTP_USER || 'alerts@floop.radar',
       smtp: {
         host: process.env.SMTP_HOST || 'smtp.gmail.com',
         port: Number(process.env.SMTP_PORT) || 587,
@@ -65,12 +65,29 @@ function loadState() {
   }
   try {
     const parsed = JSON.parse(fs.readFileSync(targetFile, 'utf8'));
+    const def = defaultState();
     const merged = {
-      ...defaultState(),
+      ...def,
       ...parsed,
       transportConfig: {
-        ...defaultState().transportConfig,
-        ...(parsed.transportConfig || {})
+        ...def.transportConfig,
+        ...(parsed.transportConfig || {}),
+        smtp: {
+          ...def.transportConfig.smtp,
+          ...(parsed.transportConfig?.smtp || {}),
+          user: parsed.transportConfig?.smtp?.user || def.transportConfig.smtp.user,
+          pass: parsed.transportConfig?.smtp?.pass || def.transportConfig.smtp.pass
+        },
+        resend: {
+          ...def.transportConfig.resend,
+          ...(parsed.transportConfig?.resend || {}),
+          apiKey: parsed.transportConfig?.resend?.apiKey || def.transportConfig.resend.apiKey
+        },
+        sendgrid: {
+          ...def.transportConfig.sendgrid,
+          ...(parsed.transportConfig?.sendgrid || {}),
+          apiKey: parsed.transportConfig?.sendgrid?.apiKey || def.transportConfig.sendgrid.apiKey
+        }
       }
     };
     memoryState = merged;
@@ -86,6 +103,20 @@ function saveState(state) {
     fs.mkdirSync(WRITABLE_DATA_DIR, { recursive: true });
     fs.writeFileSync(WRITABLE_AUTOMATIONS_FILE, JSON.stringify(state, null, 2));
   } catch (e) {}
+}
+
+// Sync client-provided transportConfig on stateless serverless invocations
+function applyInlineTransportOverride(inlineCfg) {
+  if (!inlineCfg || typeof inlineCfg !== 'object') return;
+  updateTransportConfig(inlineCfg);
+}
+
+function isRealInboxProviderConfigured(cfg) {
+  if (!cfg) return false;
+  if (cfg.provider === 'smtp' && cfg.smtp?.host && cfg.smtp?.user && cfg.smtp?.pass) return true;
+  if (cfg.provider === 'resend' && cfg.resend?.apiKey) return true;
+  if (cfg.provider === 'sendgrid' && cfg.sendgrid?.apiKey) return true;
+  return false;
 }
 
 async function ensureEtherealTransporter() {
@@ -119,9 +150,11 @@ async function dispatchEmail({ to, subject, html, text, subscription, newlyCreat
   const state = loadState();
   const cfg = state.transportConfig;
   let providerUsed = cfg.provider || 'ethereal';
+  let deliveryMode = 'sandbox_ethereal'; // 'real_inbox' | 'sandbox_ethereal'
   let messageId = '';
   let previewUrl = '';
   let providerNote = '';
+  let primaryError = null;
   let webhookStatus = null;
 
   // 1) Optional Webhook Automation Dispatch (Zapier / Make / n8n / Custom endpoint)
@@ -152,19 +185,23 @@ async function dispatchEmail({ to, subject, html, text, subscription, newlyCreat
     }
   }
 
-  // 2) Primary Configured Provider Dispatch
+  // 2) Primary Real Inbox Provider Dispatch (Gmail/Custom SMTP, Resend API, SendGrid API)
   try {
-    if (cfg.provider === 'smtp' && cfg.smtp?.host && cfg.smtp?.user && cfg.smtp?.pass) {
+    if (cfg.provider === 'smtp') {
+      if (!cfg.smtp?.host || !cfg.smtp?.user || !cfg.smtp?.pass) {
+        throw new Error('SMTP username or App Password is missing. Enter your Gmail/SMTP credentials in Email Delivery Provider Config.');
+      }
+      const cleanPass = String(cfg.smtp.pass).replace(/\s+/g, '');
       const smtpTransporter = nodemailer.createTransport({
         host: cfg.smtp.host,
         port: Number(cfg.smtp.port) || 587,
         secure: Boolean(cfg.smtp.secure) || Number(cfg.smtp.port) === 465,
         auth: {
-          user: cfg.smtp.user,
-          pass: cfg.smtp.pass
+          user: cfg.smtp.user.trim(),
+          pass: cleanPass
         }
       });
-      const fromAddr = cfg.smtp.user.includes('@') ? cfg.smtp.user : (cfg.fromEmail || 'alerts@floop.radar');
+      const fromAddr = cfg.smtp.user.includes('@') ? cfg.smtp.user.trim() : (cfg.fromEmail || 'alerts@floop.radar');
       const info = await smtpTransporter.sendMail({
         from: `"${cfg.fromName || 'floop Daily Radar'}" <${fromAddr}>`,
         to,
@@ -173,13 +210,17 @@ async function dispatchEmail({ to, subject, html, text, subscription, newlyCreat
         html
       });
       messageId = info.messageId || `<smtp-${Date.now()}@floop.radar>`;
-      providerUsed = `Custom SMTP (${cfg.smtp.host})`;
-      providerNote = `Delivered directly via ${cfg.smtp.host} to ${to}`;
-    } else if (cfg.provider === 'resend' && cfg.resend?.apiKey) {
+      providerUsed = `Direct SMTP (${cfg.smtp.host})`;
+      deliveryMode = 'real_inbox';
+      providerNote = `Delivered directly to ${to} via ${cfg.smtp.host} (${fromAddr}).`;
+    } else if (cfg.provider === 'resend') {
+      if (!cfg.resend?.apiKey) {
+        throw new Error('Resend API Key is missing. Paste your re_... key in Email Delivery Provider Config.');
+      }
       const res = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${cfg.resend.apiKey}`,
+          'Authorization': `Bearer ${cfg.resend.apiKey.trim()}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -193,13 +234,17 @@ async function dispatchEmail({ to, subject, html, text, subscription, newlyCreat
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || `Resend HTTP ${res.status}`);
       messageId = data.id || `resend-${Date.now()}`;
-      providerUsed = 'Resend API';
-      providerNote = `Delivered via Resend API (ID: ${messageId})`;
-    } else if (cfg.provider === 'sendgrid' && cfg.sendgrid?.apiKey) {
+      providerUsed = 'Resend Email API (Real Inbox)';
+      deliveryMode = 'real_inbox';
+      providerNote = `Delivered to ${to} via Resend API (ID: ${messageId}).`;
+    } else if (cfg.provider === 'sendgrid') {
+      if (!cfg.sendgrid?.apiKey) {
+        throw new Error('SendGrid API Key is missing. Paste your SG... key in Email Delivery Provider Config.');
+      }
       const res = await fetch('https://api.sendgrid.com/v3/mail/send', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${cfg.sendgrid.apiKey}`,
+          'Authorization': `Bearer ${cfg.sendgrid.apiKey.trim()}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -214,17 +259,18 @@ async function dispatchEmail({ to, subject, html, text, subscription, newlyCreat
       });
       if (!res.ok) {
         const errTxt = await res.text();
-        throw new Error(`SendGrid HTTP ${res.status}: ${errTxt.slice(0, 120)}`);
+        throw new Error(`SendGrid HTTP ${res.status}: ${errTxt.slice(0, 140)}`);
       }
       messageId = res.headers.get('x-message-id') || `sg-${Date.now()}`;
-      providerUsed = 'SendGrid API';
-      providerNote = `Delivered via SendGrid API to ${to}`;
+      providerUsed = 'SendGrid v3 API (Real Inbox)';
+      deliveryMode = 'real_inbox';
+      providerNote = `Delivered to ${to} via SendGrid API.`;
     }
-  } catch (primaryErr) {
-    providerNote = `Primary provider (${cfg.provider}) failed (${primaryErr.message}); routed via live Ethereal SMTP fallback.`;
+  } catch (err) {
+    primaryError = err.message;
   }
 
-  // Always also generate an Ethereal SMTP delivery if not already sent or for live webmail inspection
+  // 3) Sandbox Catch-All (Ethereal SMTP) when no real provider is configured or if primary failed
   if (!messageId) {
     try {
       const { transporter, account } = await ensureEtherealTransporter();
@@ -237,14 +283,16 @@ async function dispatchEmail({ to, subject, html, text, subscription, newlyCreat
       });
       messageId = info.messageId;
       previewUrl = nodemailer.getTestMessageUrl(info) || '';
-      providerUsed = 'Nodemailer Live SMTP (smtp.ethereal.email)';
-      if (!providerNote) {
-        providerNote = `Sent via live SMTP (${account.smtp.host}:${account.smtp.port}). Inspect webmail or configure Gmail/Resend for direct personal inbox delivery.`;
-      }
+      deliveryMode = 'sandbox_ethereal';
+      providerUsed = 'Ethereal Sandbox Test SMTP (Webmail Only — Not Real Inbox)';
+      providerNote = primaryError
+        ? `Real provider (${cfg.provider}) failed: ${primaryError}. Captured in Ethereal test webmail instead.`
+        : `Captured in Ethereal test webmail (${account.smtp.host}). Note: Ethereal is a test catch-all and does NOT deliver to external Gmail/Outlook inboxes. Configure Gmail SMTP or Resend in the Automations tab for real inbox delivery.`;
     } catch (ethErr) {
       messageId = `<local-${crypto.randomUUID()}@floop.radar>`;
-      providerUsed = 'Floop Local Outbox Transport';
-      providerNote = `Captured in local outbox (${ethErr.message})`;
+      deliveryMode = 'sandbox_ethereal';
+      providerUsed = 'Floop Local Outbox Preview';
+      providerNote = primaryError || `Captured in local outbox (${ethErr.message})`;
     }
   }
 
@@ -252,12 +300,17 @@ async function dispatchEmail({ to, subject, html, text, subscription, newlyCreat
     messageId,
     previewUrl,
     providerUsed,
+    deliveryMode,
     providerNote,
+    primaryError,
     webhookStatus
   };
 }
 
-async function sendDigestForSubscription(subscriptionId, triggerReason = 'Scheduled Daily Automation') {
+async function sendDigestForSubscription(subscriptionId, triggerReason = 'Scheduled Daily Automation', inlineTransportConfig = null) {
+  if (inlineTransportConfig) {
+    applyInlineTransportOverride(inlineTransportConfig);
+  }
   const state = loadState();
   const subIndex = state.subscriptions.findIndex(s => s.id === subscriptionId);
   if (subIndex === -1) {
@@ -265,7 +318,6 @@ async function sendDigestForSubscription(subscriptionId, triggerReason = 'Schedu
   }
   const sub = state.subscriptions[subIndex];
 
-  // Query newly created subreddits in the subscriber's category
   const newQuery = querySubreddits({
     mode: 'new',
     category: sub.category || 'All',
@@ -276,7 +328,6 @@ async function sendDigestForSubscription(subscriptionId, triggerReason = 'Schedu
     limit: Number(sub.newLimit) || 6
   });
 
-  // Query hottest new subreddits in the last 90 days in the subscriber's category
   const hot90dQuery = querySubreddits({
     mode: 'hot90d',
     category: sub.category || 'All',
@@ -331,12 +382,14 @@ async function sendDigestForSubscription(subscriptionId, triggerReason = 'Schedu
       heat_score: i.heat_score
     })),
     providerUsed: delivery.providerUsed,
+    deliveryMode: delivery.deliveryMode,
     providerNote: delivery.providerNote,
+    primaryError: delivery.primaryError,
     messageId: delivery.messageId,
     previewUrl: delivery.previewUrl,
     webhookStatus: delivery.webhookStatus,
     triggerReason,
-    status: 'delivered',
+    status: delivery.deliveryMode === 'real_inbox' ? 'delivered_to_inbox' : 'captured_in_sandbox',
     sentAt: now.toISOString(),
     html,
     text
@@ -344,7 +397,7 @@ async function sendDigestForSubscription(subscriptionId, triggerReason = 'Schedu
 
   state.subscriptions[subIndex] = sub;
   state.outbox.unshift(outboxEntry);
-  state.outbox = state.outbox.slice(0, 50); // retain last 50 sent emails
+  state.outbox = state.outbox.slice(0, 50);
   saveState(state);
 
   return {
@@ -354,6 +407,9 @@ async function sendDigestForSubscription(subscriptionId, triggerReason = 'Schedu
 }
 
 async function createSubscription(payload) {
+  if (payload.transportConfig) {
+    applyInlineTransportOverride(payload.transportConfig);
+  }
   const email = String(payload.email || '').trim();
   if (!email || !email.includes('@')) {
     throw new Error('Please enter a valid email address.');
@@ -362,7 +418,6 @@ async function createSubscription(payload) {
   const state = loadState();
   const now = new Date();
   const deliveryTime = payload.deliveryTime || '08:00';
-
   const isAdultCat = String(payload.category || '').toLowerCase().includes('nsfw') ||
     String(payload.category || '').toLowerCase().includes('adult');
 
@@ -376,7 +431,7 @@ async function createSubscription(payload) {
     newLimit: Number(payload.newLimit) || 5,
     hot90dLimit: Number(payload.hot90dLimit) || 5,
     deliveryTime,
-    frequency: 'daily', // Once a day automated schedule
+    frequency: 'daily',
     status: 'active',
     createdAt: now.toISOString(),
     lastSentAt: null,
@@ -406,19 +461,77 @@ async function createSubscription(payload) {
   };
 }
 
+async function testTransportConnection(testPayload = {}) {
+  if (testPayload.transportConfig) {
+    applyInlineTransportOverride(testPayload.transportConfig);
+  }
+  const state = loadState();
+  const cfg = state.transportConfig;
+
+  if (cfg.provider === 'smtp') {
+    if (!cfg.smtp?.host || !cfg.smtp?.user || !cfg.smtp?.pass) {
+      throw new Error('Please enter your SMTP Host, Username (Gmail address), and App Password.');
+    }
+    const cleanPass = String(cfg.smtp.pass).replace(/\s+/g, '');
+    const transporter = nodemailer.createTransport({
+      host: cfg.smtp.host,
+      port: Number(cfg.smtp.port) || 587,
+      secure: Boolean(cfg.smtp.secure) || Number(cfg.smtp.port) === 465,
+      auth: { user: cfg.smtp.user.trim(), pass: cleanPass }
+    });
+    await transporter.verify();
+    return {
+      ok: true,
+      deliveryMode: 'real_inbox',
+      provider: 'smtp',
+      message: `SMTP connection to ${cfg.smtp.host}:${cfg.smtp.port} verified for ${cfg.smtp.user}. Real emails will now deliver directly to your inbox.`
+    };
+  }
+
+  if (cfg.provider === 'resend') {
+    if (!cfg.resend?.apiKey || !cfg.resend.apiKey.startsWith('re_')) {
+      throw new Error('Please enter a valid Resend API key starting with "re_".');
+    }
+    return {
+      ok: true,
+      deliveryMode: 'real_inbox',
+      provider: 'resend',
+      message: `Resend API key configured (sender: ${cfg.resend.fromEmail || 'onboarding@resend.dev'}). Real emails will deliver via Resend.`
+    };
+  }
+
+  if (cfg.provider === 'sendgrid') {
+    if (!cfg.sendgrid?.apiKey) {
+      throw new Error('Please enter a valid SendGrid API key.');
+    }
+    return {
+      ok: true,
+      deliveryMode: 'real_inbox',
+      provider: 'sendgrid',
+      message: 'SendGrid API key configured for real inbox delivery.'
+    };
+  }
+
+  const { account } = await ensureEtherealTransporter();
+  return {
+    ok: true,
+    deliveryMode: 'sandbox_ethereal',
+    provider: 'ethereal',
+    message: `Currently using Ethereal Sandbox Test SMTP (${account.user}). Emails are captured in the webmail preview and NOT sent to external Gmail/Outlook inboxes.`
+  };
+}
+
 async function runDailyCronTick({ forceAll = false, reason = 'Automated Daily Cron Job (24h Schedule)' } = {}) {
   lastCronTickAt = new Date().toISOString();
   const state = loadState();
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
-  const currentHHMM = now.toISOString().slice(11, 16); // UTC HH:MM
+  const currentHHMM = now.toISOString().slice(11, 16);
 
   const activeSubs = state.subscriptions.filter(s => s.status === 'active');
   const dueSubs = activeSubs.filter(sub => {
     if (forceAll) return true;
-    // Check if already sent today
     if (sub.lastSentDate === todayStr) return false;
-    // Check if 24h elapsed since lastSentAt OR current UTC time >= scheduled deliveryTime
     if (sub.lastSentAt) {
       const elapsedMs = now.getTime() - new Date(sub.lastSentAt).getTime();
       if (elapsedMs >= 24 * 3600 * 1000) return true;
@@ -429,7 +542,6 @@ async function runDailyCronTick({ forceAll = false, reason = 'Automated Daily Cr
 
   const results = [];
   if (dueSubs.length > 0) {
-    // Sync live data from Arctic Shift before dispatching daily digests
     await syncFromArcticShift().catch(() => {});
   }
 
@@ -442,6 +554,7 @@ async function runDailyCronTick({ forceAll = false, reason = 'Automated Daily Cr
         category: sub.category,
         outboxId: res.outboxEntry.id,
         messageId: res.outboxEntry.messageId,
+        deliveryMode: res.outboxEntry.deliveryMode,
         previewUrl: res.outboxEntry.previewUrl,
         status: 'sent'
       });
@@ -479,10 +592,8 @@ async function runDailyCronTick({ forceAll = false, reason = 'Automated Daily Cr
 
 function startDailyCronScheduler() {
   if (cronTask) return;
-  // Pre-warm Ethereal SMTP account in background
   ensureEtherealTransporter().catch(() => {});
 
-  // Run every minute to check if any subscription has reached its daily deliveryTime
   cronTask = cron.schedule('* * * * *', () => {
     runDailyCronTick({ forceAll: false }).catch(err => {
       console.error('[Floop Cron Error]:', err.message);
@@ -493,8 +604,11 @@ function startDailyCronScheduler() {
 
 function getAutomationStatus() {
   const state = loadState();
+  const realInboxActive = isRealInboxProviderConfigured(state.transportConfig);
   return {
-    schedulerRunning: Boolean(cronTask),
+    schedulerRunning: Boolean(cronTask) || Boolean(process.env.VERCEL),
+    realInboxActive,
+    deliveryMode: realInboxActive ? 'real_inbox' : 'sandbox_ethereal',
     cronExpression: '* * * * * (Checks daily deliveryTime per subscriber once every 24h)',
     lastCronTickAt,
     etherealAccount: etherealAccount
@@ -505,13 +619,13 @@ function getAutomationStatus() {
       fromName: state.transportConfig.fromName,
       fromEmail: state.transportConfig.fromEmail,
       smtp: {
-        host: state.transportConfig.smtp?.host || '',
+        host: state.transportConfig.smtp?.host || 'smtp.gmail.com',
         port: state.transportConfig.smtp?.port || 587,
         user: state.transportConfig.smtp?.user || '',
         hasPassword: Boolean(state.transportConfig.smtp?.pass)
       },
       resend: {
-        fromEmail: state.transportConfig.resend?.fromEmail || '',
+        fromEmail: state.transportConfig.resend?.fromEmail || 'onboarding@resend.dev',
         hasApiKey: Boolean(state.transportConfig.resend?.apiKey)
       },
       sendgrid: {
@@ -587,6 +701,7 @@ module.exports = {
   sendDigestForSubscription,
   runDailyCronTick,
   updateTransportConfig,
+  testTransportConnection,
   toggleSubscriptionStatus,
   deleteSubscription
 };
