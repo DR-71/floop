@@ -114,13 +114,13 @@ async function dispatchDigestViaHttpsOrReddit(params: {
   deliveredToRealInbox: boolean;
   error?: string;
 }> {
-  let resendKey = '';
-  let sendgridKey = '';
-  let fromEmail = 'floop <onboarding@resend.dev>';
+  let resendKey = process.env.RESEND_API_KEY || '';
+  let sendgridKey = process.env.SENDGRID_API_KEY || '';
+  let fromEmail = process.env.RESEND_FROM || 'floop <onboarding@resend.dev>';
 
   try {
-    resendKey = (await settings.get<string>('resendApiKey')) || '';
-    sendgridKey = (await settings.get<string>('sendgridApiKey')) || '';
+    resendKey = (await settings.get<string>('resendApiKey')) || resendKey;
+    sendgridKey = (await settings.get<string>('sendgridApiKey')) || sendgridKey;
     fromEmail = (await settings.get<string>('fromEmail')) || fromEmail;
   } catch {
     // Ignore outside Devvit runtime
@@ -144,22 +144,27 @@ async function dispatchDigestViaHttpsOrReddit(params: {
         signal: AbortSignal.timeout(10000)
       });
       if (res.ok) {
+        console.log(`[floop] Resend delivered digest to ${params.toEmail}`);
         return {
           providerUsed: 'Resend HTTPS API',
           deliveredToRealInbox: true
         };
       }
       const errBody = await res.text();
+      const errMsg = `Resend HTTP ${res.status}: ${errBody.slice(0, 220)}`;
+      console.error(`[floop] ${errMsg}`);
       return {
         providerUsed: 'Resend Error -> In-App Outbox',
         deliveredToRealInbox: false,
-        error: `Resend HTTP ${res.status}: ${errBody.slice(0, 180)}`
+        error: errMsg
       };
     } catch (err) {
+      const errMsg = err instanceof Error ? err.message : 'Resend request failed';
+      console.error(`[floop] Resend fetch blocked/failed: ${errMsg}`);
       return {
-        providerUsed: 'Resend Timeout/Blocked -> In-App Outbox',
+        providerUsed: 'Resend Blocked/Failed -> In-App Outbox',
         deliveredToRealInbox: false,
-        error: err instanceof Error ? err.message : 'Resend request failed'
+        error: errMsg
       };
     }
   }

@@ -365,8 +365,11 @@ function renderAutomations() {
         const d = await r.json();
         await fetchAutomations();
         if (d.outboxEntry) {
-          notify('Digest Dispatched', d.outboxEntry.providerUsed);
-          openEmailModal(d.outboxEntry.subject, d.outboxEntry.providerUsed, d.outboxEntry.html);
+          const detail = d.outboxEntry.error
+            ? `${d.outboxEntry.providerUsed} — ${d.outboxEntry.error}`
+            : d.outboxEntry.providerUsed;
+          notify(d.outboxEntry.deliveredToRealInbox ? 'Digest Sent to Inbox' : 'Delivery Blocked / Fallback', detail);
+          openEmailModal(d.outboxEntry.subject, detail, d.outboxEntry.html);
         }
       })
     );
@@ -401,6 +404,7 @@ function renderAutomations() {
               <div>
                 <strong>${escapeHtml(m.subject)}</strong>
                 <div style="font-size:11.5px;color:var(--text-muted);margin-top:2px;">To: ${escapeHtml(m.to)} &bull; ${escapeHtml(m.providerUsed)}</div>
+                ${m.error ? `<div style="font-size:11.5px;color:#fb7185;margin-top:4px;"><strong>Delivery Error:</strong> ${escapeHtml(m.error)}</div>` : ''}
               </div>
               <button type="button" class="btn btn-sm btn-primary js-view-msg" data-id="${escapeHtml(m.id)}">View Email</button>
             </div>
@@ -411,7 +415,12 @@ function renderAutomations() {
     outboxEl.querySelectorAll('.js-view-msg').forEach((b) =>
       b.addEventListener('click', () => {
         const msg = outbox.find((x) => x.id === b.getAttribute('data-id'));
-        if (msg) openEmailModal(msg.subject, `To: ${msg.to} • ${msg.providerUsed}`, msg.html);
+        if (msg) {
+          const meta = msg.error
+            ? `To: ${msg.to} • ${msg.providerUsed} • Error: ${msg.error}`
+            : `To: ${msg.to} • ${msg.providerUsed}`;
+          openEmailModal(msg.subject, meta, msg.html);
+        }
       })
     );
   }
@@ -619,9 +628,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     (document.getElementById('quick-email-input') as HTMLInputElement).value = '';
     await fetchAutomations();
-    notify('Daily Alert Active', `${email} (${category})`);
     if (d.outboxEntry) {
-      openEmailModal(d.outboxEntry.subject, d.outboxEntry.providerUsed, d.outboxEntry.html);
+      const detail = d.outboxEntry.error
+        ? `${d.outboxEntry.providerUsed} — ${d.outboxEntry.error}`
+        : `${email} (${category}) • ${d.outboxEntry.providerUsed}`;
+      notify(d.outboxEntry.deliveredToRealInbox ? 'Daily Alert Active & Sent' : 'Alert Saved (Email Error)', detail);
+      openEmailModal(d.outboxEntry.subject, detail, d.outboxEntry.html);
+    } else {
+      notify('Daily Alert Active', `${email} (${category})`);
     }
   });
 
@@ -650,7 +664,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     (document.getElementById('studio-email-input') as HTMLInputElement).value = '';
     await fetchAutomations();
-    notify('Alert Created', email);
+    if (d.outboxEntry?.error) {
+      notify('Alert Saved (Email Error)', `${d.outboxEntry.providerUsed} — ${d.outboxEntry.error}`);
+    } else {
+      notify('Alert Created', d.outboxEntry ? `${email} • ${d.outboxEntry.providerUsed}` : email);
+    }
   });
 
   document.getElementById('quick-preview-email-btn')?.addEventListener('click', async () => {
