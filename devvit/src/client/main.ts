@@ -363,12 +363,16 @@ function renderAutomations() {
         if (!id) return;
         const r = await fetch(`/api/subscriptions/${encodeURIComponent(id)}/send-now`, { method: 'POST' });
         const d = await r.json();
+        if (!r.ok) {
+          notify('Send Failed', d.error || `HTTP ${r.status}`);
+          return;
+        }
         await fetchAutomations();
         if (d.outboxEntry) {
           const detail = d.outboxEntry.error
             ? `${d.outboxEntry.providerUsed} — ${d.outboxEntry.error}`
             : d.outboxEntry.providerUsed;
-          notify(d.outboxEntry.deliveredToRealInbox ? 'Digest Sent to Inbox' : 'Delivery Blocked / Fallback', detail);
+          notify(d.outboxEntry.deliveredToRealInbox ? 'Digest Sent' : 'Delivery Blocked / Fallback', detail);
           openEmailModal(d.outboxEntry.subject, detail, d.outboxEntry.html);
         }
       })

@@ -122,9 +122,13 @@ async function dispatchDigestViaHttpsOrReddit(params: {
     resendKey = (await settings.get<string>('resendApiKey')) || resendKey;
     sendgridKey = (await settings.get<string>('sendgridApiKey')) || sendgridKey;
     fromEmail = (await settings.get<string>('fromEmail')) || fromEmail;
-  } catch {
-    // Ignore outside Devvit runtime
+  } catch (err) {
+    console.warn('[floop] settings.get error:', err instanceof Error ? err.message : err);
   }
+
+  console.log(
+    `[floop] Dispatching to ${params.toEmail} | resendKey=${resendKey ? 'SET' : 'EMPTY'} | sendgridKey=${sendgridKey ? 'SET' : 'EMPTY'} | from=${fromEmail}`
+  );
 
   if (resendKey) {
     try {
@@ -144,9 +148,16 @@ async function dispatchDigestViaHttpsOrReddit(params: {
         signal: AbortSignal.timeout(10000)
       });
       if (res.ok) {
-        console.log(`[floop] Resend delivered digest to ${params.toEmail}`);
+        let resendId = '';
+        try {
+          const okJson = (await res.json()) as { id?: string };
+          resendId = okJson?.id || '';
+        } catch {
+          // Ignore non-JSON body
+        }
+        console.log(`[floop] Resend delivered digest to ${params.toEmail} (id=${resendId || 'ok'})`);
         return {
-          providerUsed: 'Resend HTTPS API',
+          providerUsed: resendId ? `Resend HTTPS API (id: ${resendId})` : 'Resend HTTPS API',
           deliveredToRealInbox: true
         };
       }
